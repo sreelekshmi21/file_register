@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from tkinter import ttk
+import re
 
 
 # Database configuration
@@ -147,15 +148,50 @@ class ResponsiveApp:
         if not all([username, password]):
                 messagebox.showerror("Invalid Input", "Please fill in all rrrrrequired fields.")
                 return
-        if username=='admin' and password=='123':
-         print('LOgin success')
-         messagebox.showinfo("login", "LOGIN success")
+        # if username=='admin' and password=='123':
+        #  print('LOgin success')
+        #  messagebox.showinfo("login", "LOGIN success")        
+         
+        #  self.open_treeview_window()
+        # else:
+        #     messagebox.showerror("Invalid Input", "Incorrect password/username.")  
+        
+     
+        conn = self.connect_to_db()
+        if not conn:
+                return
+                
+        try:
+                cursor = conn.cursor()
 
-         self.open_treeview_window()
-        else:
-            messagebox.showerror("Invalid Input", "Incorrect password/username.")  
+                # cursor.execute("SELECT * FROM signup WHERE passwd=123456")
+                
+                cursor.execute(f"SELECT * FROM signup WHERE passwd={password}")
+               
+                
+                # cursor.execute()
+                # conn.commit()
+
+                messagebox.showinfo("login", "LOgin successfullly")
+                
+        except mysql.connector.Error as err:
+                print(f"Database error: {err}")
+                messagebox.showerror("Database Error", f"Failed to login:\n{err}")
+        finally:
+                if conn.is_connected():
+                    cursor.close()
+                    conn.close()
 
 
+
+
+
+
+
+
+
+
+        
        #signup
      def signup(self):
         print('sign up')
@@ -216,14 +252,14 @@ class ResponsiveApp:
                              bg='#2196F3', fg='white', width=20, height=2,
                              font=self.button_font, relief=tk.RAISED,
                              activebackground='#0b7dda', cursor="hand2")
-        view_button.pack()
+        view_button.pack(pady=10)
 
 
         back_to_login = tk.Button(input_frame_one, text="BACK TO LOGIN", command=self.back_to_login,
                              bg='#2196E3', fg='white', width=20, height=2,
                              font=self.button_font, relief=tk.RAISED,
                              activebackground='#0b7dda', cursor="hand2")
-        back_to_login.pack()  
+        back_to_login.pack(pady=10)  
 
 
       #register
@@ -242,6 +278,17 @@ class ResponsiveApp:
                 messagebox.showerror("Invalid Input", "Please fill in all required fieldddddddddds.")
                 return
         
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+        if (re.match(email_pattern,email)):
+           print('valod')
+
+        else: 
+            print('invalif')   
+            messagebox.showerror("Invalid email", "Invalid email.")
+            return  
+
+
             # Connect to database
         conn = self.connect_to_db()
         if not conn:
