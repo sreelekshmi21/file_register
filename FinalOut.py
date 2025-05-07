@@ -147,19 +147,20 @@ class ResponsiveApp:
             return
             
         # For demo purposes, hardcoded admin login
-        if username == 'admin' and password == '123':
-            messagebox.showinfo("Login", "Login successful")
-            self.root.withdraw()  # Hide the login window
-            self.open_add_file_window()  # Open the add file window directly after login
-        else:
+        # if username == 'admin' and password == '123':
+        #     messagebox.showinfo("Login", "Login successful")
+        #     self.root.withdraw()  # Hide the login window
+        #     self.open_add_file_window()  # Open the add file window directly after login
+        # else:
             # For a real implementation, check credentials against database
-            conn = self.connect_to_db()
-            if not conn:
+        conn = self.connect_to_db()
+        if not conn:
                 return
                 
-            try:
+        try:
                 cursor = conn.cursor()
-                query = "SELECT * FROM signup WHERE username = %s AND passwd = %s"
+                # query = "SELECT * FROM signup WHERE username = %s AND passwd = %s"
+                query = "SELECT username,passwd FROM signup WHERE username = %s AND passwd = %s"
                 cursor.execute(query, (username, password))
                 result = cursor.fetchone()
                 
@@ -169,9 +170,9 @@ class ResponsiveApp:
                     self.open_add_file_window()  # Open add file window after login
                 else:
                     messagebox.showerror("Login Failed", "Incorrect username or password.")
-            except mysql.connector.Error as err:
+        except mysql.connector.Error as err:
                 messagebox.showerror("Database Error", f"Failed to validate login: {err}")
-            finally:
+        finally:
                 if conn.is_connected():
                     cursor.close()
                     conn.close()
@@ -364,7 +365,23 @@ class ResponsiveApp:
         remarks_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
         self.remarks_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.remarks_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
-        
+
+      
+        row += 1
+        inwardnum_label = tk.Label(content_frame, text="Inward Num:", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        inwardnum_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.inwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.inwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
+        row += 1
+        outwardnum_label = tk.Label(content_frame, text="Outward Num:", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        outwardnum_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.outwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.outwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
+               
         # Buttons frame
         buttons_frame = tk.Frame(add_file_window, bg='#e6f2ff', pady=20)
         buttons_frame.grid(row=2, column=0, sticky="ew")
@@ -417,6 +434,8 @@ class ResponsiveApp:
             receiver = self.receiver_entry.get()
             despatch = self.despatch_entry.get()
             remarks = self.remarks_entry.get()
+            inwardnum = self.inwardnum_entry.get()
+            outwardnum = self.outwardnum_entry.get()
             
             # Validate inputs
             if not all([fileid, name, sender, receiver]):
@@ -436,10 +455,10 @@ class ResponsiveApp:
                 
                 # Insert data into database
                 query = """
-                INSERT INTO files (file_id, file_name, sender, receiver, despatched_to, date_added, remarks)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO files (file_id, file_name, sender, receiver, despatched_to, date_added, remarks,inwardnum,outwardnum)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s)
                 """
-                values = (fileid, name, sender, receiver, despatch, date, remarks)
+                values = (fileid, name, sender, receiver, despatch, date, remarks,inwardnum,outwardnum)
                 
                 cursor.execute(query, values)
                 conn.commit()
@@ -457,6 +476,8 @@ class ResponsiveApp:
                 self.receiver_entry.delete(0, tk.END)
                 self.despatch_entry.delete(0, tk.END)
                 self.remarks_entry.delete(0, tk.END)
+                self.inwardnum_entry.delete(0, tk.END)
+                self.outwardnum_entry.delete(0, tk.END)
                 
             except mysql.connector.Error as err:
                 print(f"Database error: {err}")
@@ -664,7 +685,7 @@ class ResponsiveApp:
         status_label.pack(side=tk.LEFT, fill=tk.X)
         
         # Define columns
-        tree['columns'] = ('ID', 'file_id', 'file_name', 'sender', 'receiver', 'despatched_to', 'date_added', 'remarks')
+        tree['columns'] = ('ID', 'file_id', 'file_name', 'sender', 'receiver', 'despatched_to', 'date_added', 'remarks','inwardnum','outwardnum')
         
         # Format columns
         tree.column('#0', width=0, stretch=tk.NO)  # Hidden column
@@ -676,6 +697,8 @@ class ResponsiveApp:
         tree.column('despatched_to', width=150, anchor=tk.W)
         tree.column('date_added', width=150, anchor=tk.W)
         tree.column('remarks', width=200, anchor=tk.W)
+        tree.column('inwardnum', width=200, anchor=tk.W)
+        tree.column('outwardnum', width=200, anchor=tk.W)
         
         # Create headings
         tree.heading('#0', text='', anchor=tk.CENTER)
@@ -687,6 +710,8 @@ class ResponsiveApp:
         tree.heading('despatched_to', text='Despatched To', anchor=tk.CENTER)
         tree.heading('date_added', text='Date', anchor=tk.CENTER)
         tree.heading('remarks', text='Remarks', anchor=tk.CENTER)
+        tree.heading('inwardnum', text='InwardNum', anchor=tk.CENTER)
+        tree.heading('outwardnum', text='OutwardNum', anchor=tk.CENTER)
         
         # Update selection label when selection changes
         def on_tree_select(_):
@@ -800,6 +825,18 @@ class ResponsiveApp:
         edit_remarks = ttk.Entry(form_frame, width=30, font=self.label_font)
         edit_remarks.grid(row=5, column=1, sticky="w", padx=10, pady=5)
         edit_remarks.insert(0, values[7])  # Index 7 contains remarks
+
+         # InwardNum
+        tk.Label(form_frame, text="InwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=6, column=0, sticky="e", padx=10, pady=5)
+        edit_inwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_inwardnum.grid(row=6, column=1, sticky="w", padx=10, pady=5)
+        edit_inwardnum.insert(0, values[8])  # Index 8 contains inwardnum
+        
+         # OutwardNum
+        tk.Label(form_frame, text="OutwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=7, column=0, sticky="e", padx=10, pady=5)
+        edit_outwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_outwardnum.grid(row=7, column=1, sticky="w", padx=10, pady=5)
+        edit_outwardnum.insert(0, values[9])  # Index 9 contains outwardnum
         
         # Update function
         def update_file():
@@ -810,7 +847,12 @@ class ResponsiveApp:
             receiver = edit_receiver.get()
             despatch = edit_despatch.get()
             remarks = edit_remarks.get()
-            
+            inwardnum = edit_inwardnum.get()
+            outwardnum = edit_outwardnum.get()
+           
+            selected_items = tree.selection()
+            id = tree.item(selected_items[0])["values"][0]
+
             # Validate
             if not all([file_id, name, sender, receiver]):
                 messagebox.showerror("Invalid Input", "Please fill in all required fields.")
@@ -823,15 +865,15 @@ class ResponsiveApp:
                 
             try:
                 cursor = conn.cursor()
-                
+                date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 # Update data
                 query = """
                 UPDATE files 
                 SET file_id = %s, file_name = %s, sender = %s, receiver = %s, 
-                    despatched_to = %s, remarks = %s
+                    despatched_to = %s, date_added=%s, remarks = %s,inwardnum = %s,outwardnum = %s
                 WHERE id = %s
                 """
-                values = (file_id, name, sender, receiver, despatch, remarks, values[0])  # values[0] contains the ID
+                values = (file_id, name, sender, receiver, despatch, date, remarks, inwardnum,outwardnum, id)  # values[0] contains the ID
                 
                 cursor.execute(query, values)
                 conn.commit()
@@ -839,10 +881,11 @@ class ResponsiveApp:
                 messagebox.showinfo("Success", "File information updated successfully.")
                 
                 # Refresh the treeview
+                edit_window.destroy()
                 self.load_data_from_db(tree, edit_window)
                 
                 # Close the edit window
-                edit_window.destroy()
+                # edit_window.destroy()
                 
             except mysql.connector.Error as err:
                 messagebox.showerror("Database Error", f"Failed to update file: {err}")
