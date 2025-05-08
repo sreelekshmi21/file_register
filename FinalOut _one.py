@@ -381,6 +381,20 @@ class ResponsiveApp:
         self.outwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.outwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
+        #########################
+       
+        # Define the options for the dropdown
+        choices = ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"]
+       
+        title_label = tk.Label(content_frame, text="Select Sender email", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        title_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        branch_dropdown = ttk.Combobox(content_frame,values=choices)
+        branch_dropdown.grid(row=row, column=1, sticky="e", padx=10, pady=10)
+        selection = branch_dropdown.get()
+        print('SEL===',selection)
+        ##########################          
+               
         # Buttons frame
         buttons_frame = tk.Frame(add_file_window, bg='#e6f2ff', pady=20)
         buttons_frame.grid(row=2, column=0, sticky="ew")
