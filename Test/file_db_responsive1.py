@@ -6,6 +6,10 @@ from tkinter import Frame, filedialog, ttk, messagebox, font
 import mysql.connector
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+# import app_password
+from app_password import *
+
+
 
 from tkinter import ttk
 import re
@@ -136,9 +140,408 @@ class ResponsiveApp:
             return None
      
 
+
+     
+     def add_file(self):
+        """Add a new file to the database"""
+        try: 
+            fileid = self.id_entry.get()
+            name = self.name_entry.get()
+            sender = self.sender_entry.get()
+            receiver = self.receiver_entry.get()
+            despatch = self.despatch_entry.get()
+            remarks = self.remarks_entry.get()
+            inwardnum = self.inwardnum_entry.get()
+            outwardnum = self.outwardnum_entry.get()
+            sender_sel = self.sender_dropdown.get()
+            print(sender_sel)
+            receiver_sel = self.receiver_dropdown.get()
+            print(sender_sel)
+            
+            # Validate inputs
+            if not all([fileid, name, sender, receiver]):
+                messagebox.showerror("Invalid Input", "Please fill in all required fields.")
+                return
+            
+            if not sender_sel:
+               messagebox.showerror("Error", "Please select a sender email")
+               return
+            if not receiver_sel:
+               messagebox.showerror("Error", "Please select a receiver email")
+               return
+                
+            print(f"Adding file: {name} from {sender} to {receiver}")    
+            date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Connect to database
+            conn = self.connect_to_db()
+            if not conn:
+                return
+                
+            try:
+                cursor = conn.cursor()
+                
+                # Insert data into database
+                query = """
+                INSERT INTO files (file_id, file_name, sender, receiver, despatched_to, date_added, remarks,inwardnum,outwardnum)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s)
+                """
+                values = (fileid, name, sender, receiver, despatch, date, remarks,inwardnum,outwardnum)
+                
+                cursor.execute(query, values)
+                conn.commit()
+                
+                print("File added successfully to database.")
+                messagebox.showinfo("Success", "File added successfully to database.")
+                self.open_treeview_window()
+                # Send email notification
+                self.send_email(name,sender_sel,receiver_sel)
+                
+                # Clear entries after successful submission
+                self.id_entry.delete(0, tk.END)
+                self.name_entry.delete(0, tk.END)
+                self.sender_entry.delete(0, tk.END)
+                self.receiver_entry.delete(0, tk.END)
+                self.despatch_entry.delete(0, tk.END)
+                self.remarks_entry.delete(0, tk.END)
+                self.inwardnum_entry.delete(0, tk.END)
+                self.outwardnum_entry.delete(0, tk.END)
+                
+            except mysql.connector.Error as err:
+                print(f"Database error: {err}")
+                messagebox.showerror("Database Error", f"Failed to add file to database:\n{err}")
+            finally:
+                if conn.is_connected():
+                    cursor.close()
+                    conn.close()
+          
+        except ValueError as e:
+            print(f'Invalid input: {e}')
+            messagebox.showerror("Invalid Input", "Please enter valid input values.")
+            return
+
+     def open_add_file_window(self):
+        print('open_add-file')
+        add_file_window = tk.Toplevel(self.root)
+        add_file_window.title("Add File Information")
+        
+        # Make the window fullscreen
+        add_file_window.state('zoomed')
+        
+        # Configure the grid
+        add_file_window.grid_columnconfigure(0, weight=1)
+        add_file_window.grid_rowconfigure(1, weight=1)
+        
+        add_file_window.configure(bg='#e6f2ff')
+        
+        # Title frame
+        title_frame = tk.Frame(add_file_window, bg='#003366', pady=10)
+        title_frame.grid(row=0, column=0, sticky="ew")
+        
+        title_label = tk.Label(title_frame, text="Add File Information", 
+                             font=self.title_font, bg='#003366', fg='white')
+        title_label.pack()
+         # Main content frame
+        content_frame = tk.Frame(add_file_window, bg='#e6f2ff', padx=20, pady=20,
+                               highlightbackground='#99ccff', highlightthickness=1)
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=40, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(1, weight=2)
+        
+        # Create form fields
+        # File ID
+        row = 0
+        file_id_label = tk.Label(content_frame, text="File ID:", bg='#e6f2ff', 
+                               font=self.label_font, anchor="e")
+        file_id_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.id_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.id_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        
+        # File Name
+        row += 1
+        name_label = tk.Label(content_frame, text="File Name:", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        name_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.name_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.name_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        
+        # Sender
+        row += 1
+        sender_label = tk.Label(content_frame, text="From (Sender):", bg='#e6f2ff', 
+                              font=self.label_font, anchor="e")
+        sender_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.sender_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.sender_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        
+        # Receiver
+        row += 1
+        receiver_label = tk.Label(content_frame, text="To (Receiver):", bg='#e6f2ff', 
+                                font=self.label_font, anchor="e")
+        receiver_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.receiver_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.receiver_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        
+        # Despatched To
+        row += 1
+        despatch_label = tk.Label(content_frame, text="Despatched To:", bg='#e6f2ff', 
+                                font=self.label_font, anchor="e")
+        despatch_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.despatch_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.despatch_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        
+        # Remarks
+        row += 1
+        remarks_label = tk.Label(content_frame, text="Remarks:", bg='#e6f2ff', 
+                               font=self.label_font, anchor="e")
+        remarks_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.remarks_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.remarks_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
+      
+        row += 1
+        inwardnum_label = tk.Label(content_frame, text="Inward Num:", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        inwardnum_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.inwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.inwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
+        row += 1
+        outwardnum_label = tk.Label(content_frame, text="Outward Num:", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        outwardnum_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.outwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.outwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
+        choices = ["Info@santhigirifoundation.com", "projectcellos@gmail.com", "ssreelekshmi09@gmail.com","sreelek24@gmail.com"]
+        row +=1 
+        title_label = tk.Label(content_frame, text="Select Sender email", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        title_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.sender_dropdown = ttk.Combobox(content_frame,values=choices)
+        self.sender_dropdown.grid(row=row, column=1, sticky="e", padx=10, pady=10)
+    
+        def on_selection_change(event):
+         sender_selection = self.sender_dropdown.get()
+         print('SEL1===', sender_selection)
+        
+        
+        self.sender_dropdown.bind("<<ComboboxSelected>>", on_selection_change) 
+
+      
+        # choices_ = ["Option 6", "Option 7", "Option 8", "Option 9", "Option 10"]
+
+        def on_receiver_selection_change(event):
+         receiver_selection = self.receiver_dropdown.get()
+         print('SEL22222222===', receiver_selection) 
+        
+        
+
+        row +=1
+        title_label_one = tk.Label(content_frame, text="Select Receiver email", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        title_label_one.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.receiver_dropdown = ttk.Combobox(content_frame,values=choices)
+        self.receiver_dropdown.grid(row=row, column=1, sticky="e", padx=10, pady=10)
+               
+        self.receiver_dropdown.bind("<<ComboboxSelected>>", on_receiver_selection_change)    
+
+       
+
+
+      # Buttons frame
+        buttons_frame = tk.Frame(add_file_window, bg='#e6f2ff', pady=20)
+        buttons_frame.grid(row=2, column=0, sticky="ew")
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=1)
+        buttons_frame.grid_columnconfigure(2, weight=1)
+        
+        # Submit button
+        submit_button = tk.Button(buttons_frame, text="SUBMIT", command=self.add_file,
+                                bg='#4CAF50', fg='white', width=20, height=2,
+                                font=self.button_font, relief=tk.RAISED,
+                                activebackground='#45a049', cursor="hand2")
+        submit_button.grid(row=0, column=0, padx=20, pady=20)
+        
+        view_button = tk.Button(buttons_frame, text="VIEW REGISTER", 
+                              command=lambda: self.open_treeview_window(add_file_window),
+                              bg='#2196F3', fg='white', width=20, height=2,
+                              font=self.button_font, relief=tk.RAISED,
+                              activebackground='#0b7dda', cursor="hand2")
+        view_button.grid(row=0, column=1, padx=20, pady=20)
      #login
+        logout_button = tk.Button(buttons_frame, text="LOGOUT", 
+                              command=lambda: self.logout_and_close_window(add_file_window),
+                              bg='#2196F3', fg='white', width=20, height=2,
+                              font=self.button_font, relief=tk.RAISED,
+                              activebackground='#0b7dda', cursor="hand2")
+        logout_button.grid(row=0, column=2, padx=20, pady=20)
      
   
+
+     
+     def logout_and_close_window(self, window):
+       result = messagebox.askquestion("Logout", "Are you sure you want to logout?")
+       if result == 'yes':
+         self.logout()
+         window.destroy()
+         self.username_entry.delete(0, tk.END)
+         self.password_entry.delete(0, tk.END)
+
+
+
+     def edit_selected_file(self, tree):
+        """Edit the selected file"""
+        selected = tree.selection()
+        
+        if not selected:
+            messagebox.showinfo("Selection", "Please select a file to edit")
+            return
+            
+        # For simplicity, only edit the first selected item if multiple are selected
+        item = selected[0]
+        values = tree.item(item, 'values')
+        
+        if not values:
+            return
+            
+        #Create edit dialog
+        edit_window = tk.Toplevel(self.root)
+        edit_window.title("Edit File Information")
+        edit_window.geometry("500x500")
+        edit_window.configure(bg='#e6f2ff')
+        
+        # Create form
+        form_frame = tk.Frame(edit_window, bg='#e6f2ff', padx=20, pady=20)
+        form_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # File ID
+        tk.Label(form_frame, text="File ID:", bg='#e6f2ff', font=self.label_font).grid(row=0, column=0, sticky="e", padx=10, pady=5)
+        edit_file_id = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_file_id.grid(row=0, column=1, sticky="w", padx=10, pady=5)
+        edit_file_id.insert(0, values[1])  # Index 1 contains file_id
+        
+        # File Name
+        tk.Label(form_frame, text="File Name:", bg='#e6f2ff', font=self.label_font).grid(row=1, column=0, sticky="e", padx=10, pady=5)
+        edit_name = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_name.grid(row=1, column=1, sticky="w", padx=10, pady=5)
+        edit_name.insert(0, values[2])  # Index 2 contains file_name
+        
+        # Sender
+        tk.Label(form_frame, text="From (Sender):", bg='#e6f2ff', font=self.label_font).grid(row=2, column=0, sticky="e", padx=10, pady=5)
+        edit_sender = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_sender.grid(row=2, column=1, sticky="w", padx=10, pady=5)
+        edit_sender.insert(0, values[3])  # Index 3 contains sender
+        
+        # Receiver
+        tk.Label(form_frame, text="To (Receiver):", bg='#e6f2ff', font=self.label_font).grid(row=3, column=0, sticky="e", padx=10, pady=5)
+        edit_receiver = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_receiver.grid(row=3, column=1, sticky="w", padx=10, pady=5)
+        edit_receiver.insert(0, values[4])  # Index 4 contains receiver
+        
+        # Despatched To
+        tk.Label(form_frame, text="Despatched To:", bg='#e6f2ff', font=self.label_font).grid(row=4, column=0, sticky="e", padx=10, pady=5)
+        edit_despatch = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_despatch.grid(row=4, column=1, sticky="w", padx=10, pady=5)
+        edit_despatch.insert(0, values[5])  # Index 5 contains despatched_to
+        
+        # Remarks
+        tk.Label(form_frame, text="Remarks:", bg='#e6f2ff', font=self.label_font).grid(row=5, column=0, sticky="e", padx=10, pady=5)
+        edit_remarks = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_remarks.grid(row=5, column=1, sticky="w", padx=10, pady=5)
+        edit_remarks.insert(0, values[7])  # Index 7 contains remarks
+
+         # InwardNum
+        tk.Label(form_frame, text="InwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=6, column=0, sticky="e", padx=10, pady=5)
+        edit_inwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_inwardnum.grid(row=6, column=1, sticky="w", padx=10, pady=5)
+        edit_inwardnum.insert(0, values[8])  # Index 8 contains inwardnum
+        
+         # OutwardNum
+        tk.Label(form_frame, text="OutwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=7, column=0, sticky="e", padx=10, pady=5)
+        edit_outwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
+        edit_outwardnum.grid(row=7, column=1, sticky="w", padx=10, pady=5)
+        edit_outwardnum.insert(0, values[9])  # Index 9 contains outwardnum 
+     
+     
+        def update_file():
+            # Get updated values
+            file_id = edit_file_id.get()
+            name = edit_name.get()
+            sender = edit_sender.get()
+            receiver = edit_receiver.get()
+            despatch = edit_despatch.get()
+            remarks = edit_remarks.get()
+            inwardnum = edit_inwardnum.get()
+            outwardnum = edit_outwardnum.get()
+           
+            selected_items = tree.selection()
+            id = tree.item(selected_items[0])["values"][0]
+
+            # Validate
+            if not all([file_id, name, sender, receiver]):
+                messagebox.showerror("Invalid Input", "Please fill in all required fields.")
+                return
+                
+            # Connect to database
+            conn = self.connect_to_db()
+            if not conn:
+                return
+                
+            try:
+                cursor = conn.cursor()
+                date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # Update data
+                query = """
+                UPDATE files 
+                SET file_id = %s, file_name = %s, sender = %s, receiver = %s, 
+                    despatched_to = %s, date_added=%s, remarks = %s,inwardnum = %s,outwardnum = %s
+                WHERE id = %s
+                """
+                values = (file_id, name, sender, receiver, despatch, date, remarks, inwardnum,outwardnum, id)  # values[0] contains the ID
+                
+                cursor.execute(query, values)
+                conn.commit()
+                
+                messagebox.showinfo("Success", "File information updated successfully.")
+                
+                # Refresh the treeview
+                edit_window.destroy()
+                # self.refresh_data()
+                self.load_data_from_db(tree, edit_window)
+                
+                # Close the edit window
+                # edit_window.destroy()
+                
+            except mysql.connector.Error as err:
+                messagebox.showerror("Database Error", f"Failed to update file: {err}")
+            finally:
+                if conn.is_connected():
+                    cursor.close()
+                    conn.close()
+        
+
+        buttons_frame = tk.Frame(edit_window, bg='#e6f2ff', pady=10)
+        buttons_frame.pack(fill=tk.X)
+        
+        update_button = tk.Button(buttons_frame, text="UPDATE",command=update_file,
+                                bg='#4CAF50', fg='white', width=15, height=1,
+                                font=self.button_font, relief=tk.RAISED,
+                                activebackground='#45a049', cursor="hand2")
+        update_button.pack(side=tk.LEFT, padx=10)
+        
+        cancel_button = tk.Button(buttons_frame, text="CANCEL", command=edit_window.destroy,
+                                bg='#f44336', fg='white', width=15, height=1,
+                                font=self.button_font, relief=tk.RAISED,
+                                activebackground='#d32f2f', cursor="hand2")
+        cancel_button.pack(side=tk.RIGHT, padx=10)
+
+        # def update_file(self):
+        #     print('update file')
+            # Get updated values
+           
+    # Update function
+
+
      def login(self):
     
         username = self.username_entry.get()
@@ -166,14 +569,17 @@ class ResponsiveApp:
 
                 # cursor.execute("SELECT * FROM signup WHERE passwd=123456")
                 
-                cursor.execute(f"SELECT * FROM signup WHERE passwd={password}")
-               
-                
+                query = "SELECT username,passwd FROM signup WHERE username = %s AND passwd = %s"
+                cursor.execute(query,(username, password))
+                result = cursor.fetchone()
                 # cursor.execute()
                 # conn.commit()
-
-                messagebox.showinfo("login", "LOgin successfullly")
-                
+                if result:
+                 messagebox.showinfo("login", "LOgin successfullly")
+                 self.root.withdraw()
+                 self.open_add_file_window()
+                else: 
+                   messagebox.showerror("login failed", "login failed")
         except mysql.connector.Error as err:
                 print(f"Database error: {err}")
                 messagebox.showerror("Database Error", f"Failed to login:\n{err}")
@@ -183,15 +589,6 @@ class ResponsiveApp:
                     conn.close()
 
 
-
-
-
-
-
-
-
-
-        
        #signup
      def signup(self):
         print('sign up')
@@ -254,13 +651,15 @@ class ResponsiveApp:
                              activebackground='#0b7dda', cursor="hand2")
         view_button.pack(pady=10)
 
-
-        back_to_login = tk.Button(input_frame_one, text="BACK TO LOGIN", command=self.back_to_login,
-                             bg='#2196E3', fg='white', width=20, height=2,
+        view_button = tk.Button(input_frame_one, text="BACK TO LOGIN", command=self.logout,
+                             bg='#2196F3', fg='white', width=20, height=2,
                              font=self.button_font, relief=tk.RAISED,
                              activebackground='#0b7dda', cursor="hand2")
-        back_to_login.pack(pady=10)  
+        view_button.pack(pady=10)
 
+     def logout(self):
+            self.root.deiconify() #back to login
+        
 
       #register
      def register(self):
@@ -296,7 +695,15 @@ class ResponsiveApp:
                 
         try:
                 cursor = conn.cursor()
-                
+                #check if username already exists
+                query = "SELECT username FROM signup WHERE username = %s"
+
+                cursor.execute(query,(username,))
+
+                if cursor.fetchone():
+                 messagebox.showerror("Registration Error", "Username already exists!")
+                 return
+
                 # Insert data into database
                 query = """
                 INSERT INTO signup (username, passwd, email, department)
@@ -311,39 +718,37 @@ class ResponsiveApp:
                 
         except mysql.connector.Error as err:
                 print(f"Database error: {err}")
-                messagebox.showerror("Database Error", f"Failed to add file to database:\n{err}")
+                messagebox.showerror("Database Error", f"Failed to register user:\n{err}")
         finally:
                 if conn.is_connected():
                     cursor.close()
                     conn.close()   
 
        
-     def back_to_login(self):
+     def back_to_loginwindow(self):
         print('back to login')
-        self.login()     
+        self.root.withdraw()
+        self.open_add_file_window()
+
+        # self.login()     
 
 
-     def open_treeview_window(self):
+     def open_treeview_window(self, parent_window=None):
         """Open a new window with treeview to display database data"""
-        new_window = tk.Toplevel(self.root)
-        new_window.title("File Register Data")
+        treeview_window = tk.Toplevel(self.root)
+        treeview_window.title("File Register Data")
         
         # Make the new window fullscreen as well
-        new_window.state('zoomed')  # For Windows
-        # For Linux/Mac: new_window.attributes('-zoomed', True)
-        
-        # Get screen dimensions
-        screen_width = new_window.winfo_screenwidth()
-        screen_height = new_window.winfo_screenheight()
+        treeview_window.state('zoomed')
         
         # Configure the grid
-        new_window.grid_columnconfigure(0, weight=1)
-        new_window.grid_rowconfigure(1, weight=1)  # Give the treeview area most of the space
+        treeview_window.grid_columnconfigure(0, weight=1)
+        treeview_window.grid_rowconfigure(1, weight=1)  # Give the treeview area most of the space
         
-        new_window.configure(bg='#e6f2ff')
+        treeview_window.configure(bg='#e6f2ff')
         
         # Title frame
-        title_frame = tk.Frame(new_window, bg='#003366', pady=10)
+        title_frame = tk.Frame(treeview_window, bg='#003366', pady=10)
         title_frame.grid(row=0, column=0, sticky="ew")
         
         title_label = tk.Label(title_frame, text="File Register Data", 
@@ -351,7 +756,7 @@ class ResponsiveApp:
         title_label.pack()
         
         # Main content area with Treeview
-        content_frame = tk.Frame(new_window, bg='#e6f2ff', padx=20, pady=10)
+        content_frame = tk.Frame(treeview_window, bg='#e6f2ff', padx=20, pady=10)
         content_frame.grid(row=1, column=0, sticky="nsew")
         content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_rowconfigure(0, weight=1)
@@ -411,15 +816,54 @@ class ResponsiveApp:
                     break
                     
             if not found:
-                messagebox.showinfo("Search", f"No results found for '{query}'.")
+                messagebox.showinfo("Search", f"No results found for '{query}'.")   
+       
+
+        status_frame = tk.Frame(treeview_window, bg='#003366', height=30)
+        status_frame.grid(row=2, column=0, sticky="ew")
         
-        # Function to refresh treeview data
+        status_label = tk.Label(status_frame, text="Ready", bg='#003366', fg='white', anchor="w", padx=10)
+        status_label.pack(side=tk.LEFT, fill=tk.X)
+     
+
+       # Define columns
+        tree['columns'] = ('ID', 'file_id', 'file_name', 'sender', 'receiver', 'despatched_to', 'date_added', 'remarks','inwardnum','outwardnum')
+        
+        # Format columns
+        tree.column('#0', width=0, stretch=tk.NO)  # Hidden column
+        tree.column('ID', width=50, anchor=tk.CENTER)
+        tree.column('file_id', width=100, anchor=tk.W)
+        tree.column('file_name', width=150, anchor=tk.W)
+        tree.column('sender', width=150, anchor=tk.W)
+        tree.column('receiver', width=150, anchor=tk.W)
+        tree.column('despatched_to', width=150, anchor=tk.W)
+        tree.column('date_added', width=150, anchor=tk.W)
+        tree.column('remarks', width=200, anchor=tk.W)
+        tree.column('inwardnum', width=200, anchor=tk.W)
+        tree.column('outwardnum', width=200, anchor=tk.W)
+        
+        # Create headings
+        tree.heading('#0', text='', anchor=tk.CENTER)
+        tree.heading('ID', text='ID', anchor=tk.CENTER)
+        tree.heading('file_id', text='File ID', anchor=tk.CENTER)
+        tree.heading('file_name', text='File Name', anchor=tk.CENTER)
+        tree.heading('sender', text='From (Sender)', anchor=tk.CENTER)
+        tree.heading('receiver', text='To (Receiver)', anchor=tk.CENTER)
+        tree.heading('despatched_to', text='Despatched To', anchor=tk.CENTER)
+        tree.heading('date_added', text='Date', anchor=tk.CENTER)
+        tree.heading('remarks', text='Remarks', anchor=tk.CENTER)
+        tree.heading('inwardnum', text='InwardNum', anchor=tk.CENTER)
+        tree.heading('outwardnum', text='OutwardNum', anchor=tk.CENTER)
+        
+        self.load_data_from_db(tree, status_label)
+
         def refresh_data():
             # Clear current data
             tree.delete(*tree.get_children())
             # Load data from database
             self.load_data_from_db(tree, status_label)
-        
+
+
         search_button = tk.Button(search_frame, text="Search", 
                                 command=lambda: search_treeview(search_entry.get()),
                                 bg='#2196F3', fg='white', font=self.button_font, padx=10)
@@ -428,431 +872,699 @@ class ResponsiveApp:
         refresh_button = tk.Button(search_frame, text="Refresh", command=refresh_data,
                                  bg='#4CAF50', fg='white', font=self.button_font, padx=10)
         refresh_button.pack(side=tk.LEFT, padx=10)
+        buttons_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=10)
+        buttons_frame.grid(row=3, column=0, sticky="ew")
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=1)
+        buttons_frame.grid_columnconfigure(2, weight=1) 
+        edit_button = tk.Button(buttons_frame, text="EDIT", command=lambda: self.edit_selected_file(tree),
+                              bg='#FFA500', fg='white', width=15, height=1,
+                              font=self.button_font, relief=tk.RAISED,
+                              activebackground='#FF8C00', cursor="hand2")
+        edit_button.grid(row=0, column=0, padx=10, pady=10)
         
-        # Selection indicator frame
-        selection_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=5)
-        selection_frame.grid(row=2, column=0, sticky="ew")
-        
-        selection_label = tk.Label(selection_frame, text="Selected: 0 records", bg='#e6f2ff', font=self.label_font)
-        selection_label.pack(side=tk.LEFT, padx=10)
-        
-        # Update the selection counter when selection changes
-        def on_tree_select(event):
-            selected_items = len(tree.selection())
-            selection_label.config(text=f"Selected: {selected_items} records")
-        
-        tree.bind('<<TreeviewSelect>>', on_tree_select)
-        
-        # Action buttons frame
-        action_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=10)
-        action_frame.grid(row=3, column=0, sticky="ew")
-        
-        edit_btn = tk.Button(action_frame, text="Select Record to Edit",
-                          bg='#ff9800', fg='white', font=self.button_font, padx=10)
-        edit_btn.pack(side=tk.LEFT, padx=10)
-        
-        delete_btn = tk.Button(action_frame, text="Delete Selected Records",
-                            bg='#f44336', fg='white', font=self.button_font, padx=10)
-        delete_btn.pack(side=tk.LEFT, padx=10)
-        
-        update_btn = tk.Button(action_frame, text="UPDATE RECORD",
-                            bg='#4CAF50', fg='white', font=self.button_font, padx=10)
-        update_btn.pack(side=tk.LEFT, padx=10)
-        
-        back_btn = tk.Button(action_frame, text="BACK TO HOME",
-                            bg='#4CAF50', fg='white', font=self.button_font, padx=10)  #back btn
-        back_btn.pack(side=tk.LEFT, padx=10)
-
-        add_btn = tk.Button(action_frame, text="ADD FILE",
-                            bg='#4CAF50', fg='white', font=self.button_font, padx=10)  #add
-        add_btn.pack(side=tk.LEFT, padx=10)
-        # Form frame for editing
-        form_frame = tk.Frame(content_frame, bg='#e6f2ff', padx=10, pady=10)
-        form_frame.grid(row=4, column=0, sticky="ew")
-        
-        # Create a 3-column layout for the form
-        form_frame.grid_columnconfigure(0, weight=1)
-        form_frame.grid_columnconfigure(1, weight=1)
-        form_frame.grid_columnconfigure(2, weight=1)
-        
-        # File ID
-        file_id_label = tk.Label(form_frame, text="File ID:", bg='#e6f2ff', font=self.label_font)
-        file_id_label.grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        file_id_box = ttk.Entry(form_frame, width=25)
-        file_id_box.grid(row=0, column=1, sticky="w", padx=5, pady=5)
-        
-        # File Name
-        name_label = tk.Label(form_frame, text="File Name:", bg='#e6f2ff', font=self.label_font)
-        name_label.grid(row=1, column=0, sticky="e", padx=5, pady=5)
-        name_box = ttk.Entry(form_frame, width=25)
-        name_box.grid(row=1, column=1, sticky="w", padx=5, pady=5)
-        
-        # Sender
-        sender_label = tk.Label(form_frame, text="Sender:", bg='#e6f2ff', font=self.label_font)
-        sender_label.grid(row=0, column=2, sticky="e", padx=5, pady=5)
-        sender_box = ttk.Entry(form_frame, width=25)
-        sender_box.grid(row=0, column=3, sticky="w", padx=5, pady=5)
-        
-        # Receiver
-        receiver_label = tk.Label(form_frame, text="Receiver:", bg='#e6f2ff', font=self.label_font)
-        receiver_label.grid(row=1, column=2, sticky="e", padx=5, pady=5)
-        receiver_box = ttk.Entry(form_frame, width=25)
-        receiver_box.grid(row=1, column=3, sticky="w", padx=5, pady=5)
-        
-        # Despatched To
-        despatched_label = tk.Label(form_frame, text="Despatched To:", bg='#e6f2ff', font=self.label_font)
-        despatched_label.grid(row=0, column=4, sticky="e", padx=5, pady=5)
-        despatched_box = ttk.Entry(form_frame, width=25)
-        despatched_box.grid(row=0, column=5, sticky="w", padx=5, pady=5)
-        
-        # Remarks
-        remarks_label = tk.Label(form_frame, text="Remarks:", bg='#e6f2ff', font=self.label_font)
-        remarks_label.grid(row=1, column=4, sticky="e", padx=5, pady=5)
-        remarks_box = ttk.Entry(form_frame, width=25)
-        remarks_box.grid(row=1, column=5, sticky="w", padx=5, pady=5)
-        
-        # Status label
-        status_label = tk.Label(new_window, text="", pady=10, bg='#e6f2ff', font=self.label_font)
-        status_label.grid(row=2, column=0, sticky="ew")
-        
-        ##########################################
-        # frame=tk.Frame(root,bg='lightblue')
-        # frame.place(relx=0.2,rely=0.2,relheight=0.6,relwidth=0.6)
-        # def page1():
-        #        label=tk.Label(frame,text='this is the page1')
-        #        label.place(relx=0.3,rely=0.4)
-
-        # bt=tk.Button(root,text='page1',command=page1)
-        # bt.grid(column=0,row=0)
-
-        ########################################
-        # Define the edit_data function for the edit button
-        def edit_data():
-            name_box.delete(0, tk.END)
-            file_id_box.delete(0, tk.END)
-            sender_box.delete(0, tk.END)
-            receiver_box.delete(0, tk.END)
-            despatched_box.delete(0, tk.END)
-            remarks_box.delete(0, tk.END)
-            
-            print('edit')
-            # Check if multiple items are selected
-            selected_items = tree.selection()
-            if not selected_items:
-                print('not selected')
-                messagebox.showinfo("Edit Data", "Select a record to edit")
-                # self.deiconify()s
-                root.withdraw()
-                return
-            
-            # For editing, only allow one record at a time
-            if len(selected_items) > 1:
-                messagebox.showinfo("Edit Data", "Please select only one record to edit")
-                return
-                
-            selected = selected_items[0]
-            print('Selected item:', selected)
-            
-            print(tree.item(selected), tree.item(selected)["values"], tree.item(selected)["values"][0])
-            values = tree.item(selected, 'values')
-            print(values)
-            
-            file_id_box.insert(0, values[1])
-            name_box.insert(0, values[2])
-            sender_box.insert(0, values[3])
-            receiver_box.insert(0, values[4])
-            despatched_box.insert(0, values[5])
-            remarks_box.insert(0, values[7])
-        
-        # Define the update_data function for the update button
-        def update_data():
-            selected_items = tree.selection()
-            
-            if not selected_items:
-                messagebox.showinfo("Update Data", "Select a record to update!")
-                return
-                
-            # For updating, only allow one record at a time
-            if len(selected_items) > 1:
-                messagebox.showinfo("Update Data", "Please select only one record to update")
-                return
-                
-            selected = selected_items[0]
-            id = tree.item(selected)["values"][0]
-            
-            tree.item(selected, text='', values=(name_box.get(), file_id_box.get(), 
-                                              sender_box.get(), receiver_box.get(), 
-                                              despatched_box.get(), remarks_box.get()))
-            
-            
-            
-            name = name_box.get()
-            file_id = file_id_box.get()
-
-            print('NAME====',name,file_id,name == '')
-            sender = sender_box.get()
-            receiver = receiver_box.get()
-            despatched = despatched_box.get()
-            remarks = remarks_box.get()
-
-            if file_id == '':
-                messagebox.showinfo("Warning", "Click the Record to Edit button to proceed!")
-                return
-            
-            name_box.delete(0, tk.END)
-            file_id_box.delete(0, tk.END)
-            sender_box.delete(0, tk.END)
-            receiver_box.delete(0, tk.END)
-            despatched_box.delete(0, tk.END)
-            remarks_box.delete(0, tk.END)
-            
-            date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            update_query = "UPDATE files SET file_id=%s,file_name=%s,sender=%s,receiver=%s,despatched_to=%s,date_added=%s,remarks=%s WHERE id =%s "
-            data = [file_id, name, sender, receiver, despatched, date, remarks, id]
-            
-            conn = self.connect_to_db()
-            if not conn:
-                return
-                
-            try:
-                cursor = conn.cursor()
-                cursor.execute(update_query, data)
-                conn.commit()
-                
-                messagebox.showinfo("Success", "Data updated successfully!")
-                refresh_data()
-                
-            except mysql.connector.Error as err:
-                status_label.config(text=f"Database Error: {err}")
-            finally:
-                if conn.is_connected():
-                    cursor.close()
-                    conn.close()
-        
-        # Define the delete_from_db function for multiple record deletion
-        def delete_from_db(ids):
-            if not ids:
-                return
-                
-            # Connect to database
-            conn = self.connect_to_db()
-            if not conn:
-                return
-                
-            try:
-                cursor = conn.cursor()
-                
-                # Create placeholder string for SQL IN clause
-                placeholders = ','.join(['%s'] * len(ids))
-                delete_query = f"DELETE FROM files WHERE id IN ({placeholders})"
-                
-                cursor.execute(delete_query, ids)
-                conn.commit()
-                
-                print(f"{len(ids)} files deleted successfully from database.")
-
-                messagebox.showinfo("Success", f"{len(ids)} files deleted successfully from database.")
-                refresh_data()
-                
-                # Update selection label
-                selection_label.config(text="Selected: 0 records")
-                
-            except mysql.connector.Error as err:
-                status_label.config(text=f"Database Error: {err}")
-            finally:
-                if conn.is_connected():
-                    cursor.close()
-                    conn.close()
-        
-        # Define the delete_data function for the delete button (supports multiple selection)
-        def delete_data():
-            print('Delete Data')
-            selected_items = tree.selection()
-            if not selected_items:
-                print('not selected')
-                messagebox.showinfo("Delete Data", "Select records to delete")
-                return
-            
-            # Get all the IDs of the selected records
-            ids_to_delete = []
-            for item in selected_items:
-                ids_to_delete.append(tree.item(item)["values"][0])
-            
-            result = messagebox.askquestion("Confirmation", f"Are you sure you want to delete {len(ids_to_delete)} selected file(s)?")
-            if result == 'yes':
-                # Perform the deletion
-                delete_from_db(ids_to_delete)
-                print(f"{len(ids_to_delete)} files deleted.")
-            else:
-                print("Deletion canceled.")
-                return
-            
-        def open_main_page():
-            print('open main page')
-            new_window.destroy()  # Close the new window
-            root.deiconify()  # Show the home window again
-
-        def open_add_page(self):
-           print('open add page')
-           add_window = tk.Toplevel(self.root)
-           add_window.title("Add FILE")
-        #    self.call_main_window()
-        #    self.create_widgets()
-        
-        # Make the new window fullscreen as well
-        #    add_window.state('zoomed')  # For Windows
-        # For Linux/Mac: new_window.attributes('-zoomed', True)
+        # Delete button
+        delete_button = tk.Button(buttons_frame, text="DELETE", command=lambda: self.delete_selected_file(tree),
+                                bg='#f44336', fg='white', width=15, height=1,
+                                font=self.button_font, relief=tk.RAISED,
+                                activebackground='#d32f2f', cursor="hand2")
+        delete_button.grid(row=0, column=1, padx=10, pady=10)
 
 
-        # Connect the functions to the buttons
-        edit_btn.config(command=edit_data)
-        update_btn.config(command=update_data)
-        delete_btn.config(command=delete_data)
+        back_button = tk.Button(buttons_frame, text="back", command=self.back_to_loginwindow,
+                                bg='#f44336', fg='white', width=15, height=1,
+                                font=self.button_font, relief=tk.RAISED,
+                                activebackground='#d32f2f', cursor="hand2")
+        back_button.grid(row=0, column=2, padx=10, pady=10)   
 
-        back_btn.config(command=open_main_page)
 
-        add_btn.config(command=open_add_page(self))
+      
+     def delete_selected_file(self, tree):
+         """Delete selected file(s) from database"""
+         selected = tree.selection()
         
-        # Load data from database
-        self.load_data_from_db(tree, status_label)
-        
-        return new_window
-        
+         if not selected:
+            messagebox.showinfo("Selection", "Please select file(s) to delete")
+            return
+            
+        # Confirm deletion
+         result = messagebox.askquestion("Delete Confirmation", 
+                                     f"Are you sure you want to delete {len(selected)} file(s)?")
+         if result != 'yes':
+            return
+            
+        # Connect to database
+         conn = self.connect_to_db()
+         if not conn:
+            return
+            
+         try:
+            cursor = conn.cursor()
+            
+            # Delete each selected item
+            for item in selected:
+                values = tree.item(item, 'values')
+                if values:
+                    # Delete by ID
+                    query = "DELETE FROM files WHERE id = %s"
+                    cursor.execute(query, (values[0],))  # values[0] contains the ID
+            
+            conn.commit()
+            
+            messagebox.showinfo("Success", f"{len(selected)} file(s) deleted successfully.")
+            
+            # Refresh treeview
+            self.load_data_from_db(tree, tree.master)
+            
+         except mysql.connector.Error as err:
+            messagebox.showerror("Database Error", f"Failed to delete file(s): {err}")
+         finally:
+            if conn.is_connected():
+                cursor.close()
+                conn.close()
+
      def load_data_from_db(self, tree, status_label):
         """Load data from database into treeview"""
+        # Clear existing data
+        for i in tree.get_children():
+            tree.delete(i)
+            
+        # Update status
+        status_label.config(text="Loading data...")
+        
+        # Connect to database
         conn = self.connect_to_db()
         if not conn:
-            status_label.config(text="Error: Could not connect to database")
+            status_label.config(text="Error connecting to database")
             return
             
         try:
             cursor = conn.cursor()
             
-            # Get column names
-            cursor.execute("SHOW COLUMNS FROM files")
-            headers = [column[0] for column in cursor.fetchall()]
-            
-            # Configure treeview columns
-            tree["columns"] = headers
-            for col in headers:
-                tree.heading(col, text=col.replace('_', ' ').title())
-                # Adjust column width based on content
-                if col in ('file_name', 'sender', 'receiver', 'despatched_to', 'remarks'):
-                    tree.column(col, width=150)
-                elif col == 'date_added':
-                    tree.column(col, width=130)
-                else:
-                    tree.column(col, width=80)
-            
-            # Get data from database
-            cursor.execute("SELECT * FROM files ORDER BY date_added DESC")
+            # Get all files
+            query = "SELECT * FROM files ORDER BY date_added DESC"
+            cursor.execute(query)
             rows = cursor.fetchall()
             
             # Insert data into treeview
-            for row in rows:
-                tree.insert("", "end", values=row)
+            for i, row in enumerate(rows):
+                tree.insert('', 'end', values=row)
                 
-            status_label.config(text=f"Database loaded successfully. {len(rows)} records found.")
+            status_label.config(text=f"Loaded {len(rows)} records")
             
         except mysql.connector.Error as err:
-            status_label.config(text=f"Database Error: {err}")
+            status_label.config(text=f"Database error: {err}")
+            messagebox.showerror("Database Error", f"Failed to load data: {err}")
         finally:
             if conn.is_connected():
                 cursor.close()
                 conn.close()
+
+
+     def send_email(self, name,sender_sel,receiver_sel):
+        """Send notification email about file update"""
+        try: 
+            print(f"Sending email about file: {name}")
+
+            print(f"Sending email about file: {sender_sel}")
+            
+
+            messagebox.showinfo("Sending Email", f"Sending email about file: {name}")
+        except ValueError:
+            print('Invalid input')
+            messagebox.showerror("Invalid Input", "Please enter a valid name.")
+            return
+        
+       
+        smtp_server = 'smtp.gmail.com'
+        smtp_port = 587
+        # sender_email = 'ssreelekshmi09@gmail.com'
+        sender_email = sender_sel
+        #  
+        # receiver_email = ["sreelek24@gmail.com", "ganeshsree2010@gmail.com", "vsreeprakash@gmail.com"]
+        receiver_email = [receiver_sel]
+
+        # password = 'xskv nmom wbyh eyyg'  # Use an app password, not your main password
+        
+        password = generate_app_password(sender_sel)   
+
+        # Create message
+        message = MIMEMultipart()
+        message['From'] = sender_email
+        message['To'] = ", ".join(receiver_email)              
+        message['Subject'] = 'File Received'
+
+        # Email body         
+        body = name + ' updated!'
+        message.attach(MIMEText(body, 'plain'))
+
+        # Send email
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()  # Secure the connection
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+            print("Email sent successfully!")
+            messagebox.showinfo("Success", "Email sent successfully!")
+            
+        except Exception as e:
+            print("Failed to send email:", e)
+            messagebox.showerror("Error", f"Failed to send email:\n{e}")
+        finally:
+            if 'server' in locals():
+                server.quit()
+        
+    
+    #  def open_treeview_window(self):
+    #     """Open a new window with treeview to display database data"""
+    #     new_window = tk.Toplevel(self.root)
+    #     new_window.title("File Register Data")
+        
+    #     # Make the new window fullscreen as well
+    #     new_window.state('zoomed')  # For Windows
+    #     # For Linux/Mac: new_window.attributes('-zoomed', True)
+        
+    #     # Get screen dimensions
+    #     screen_width = new_window.winfo_screenwidth()
+    #     screen_height = new_window.winfo_screenheight()
+        
+    #     # Configure the grid
+    #     new_window.grid_columnconfigure(0, weight=1)
+    #     new_window.grid_rowconfigure(1, weight=1)  # Give the treeview area most of the space
+        
+    #     new_window.configure(bg='#e6f2ff')
+        
+    #     # Title frame
+    #     title_frame = tk.Frame(new_window, bg='#003366', pady=10)
+    #     title_frame.grid(row=0, column=0, sticky="ew")
+        
+    #     title_label = tk.Label(title_frame, text="File Register Data", 
+    #                          font=self.title_font, bg='#003366', fg='white')
+    #     title_label.pack()
+        
+    #     # Main content area with Treeview
+    #     content_frame = tk.Frame(new_window, bg='#e6f2ff', padx=20, pady=10)
+    #     content_frame.grid(row=1, column=0, sticky="nsew")
+    #     content_frame.grid_columnconfigure(0, weight=1)
+    #     content_frame.grid_rowconfigure(0, weight=1)
+        
+    #     # Create Treeview with scrollbars
+    #     tree_frame = tk.Frame(content_frame)
+    #     tree_frame.grid(row=0, column=0, sticky="nsew")
+        
+    #     # Create Treeview with multiselect enabled
+    #     tree = ttk.Treeview(tree_frame, selectmode='extended')  # 'extended' allows multiple selection
+        
+    #     # Add scrollbars
+    #     vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+    #     hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
+    #     tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        
+    #     # Grid layout for treeview with scrollbars
+    #     tree.grid(row=0, column=0, sticky="nsew")
+    #     vsb.grid(row=0, column=1, sticky="ns")
+    #     hsb.grid(row=1, column=0, sticky="ew")
+        
+    #     tree_frame.grid_rowconfigure(0, weight=1)
+    #     tree_frame.grid_columnconfigure(0, weight=1)
+        
+    #     # Create search frame
+    #     search_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=10)
+    #     search_frame.grid(row=1, column=0, sticky="ew")
+        
+    #     search_label = tk.Label(search_frame, text="Search:", bg='#e6f2ff', font=self.label_font)
+    #     search_label.pack(side=tk.LEFT, padx=5)
+        
+    #     search_entry = ttk.Entry(search_frame, width=30, font=self.label_font)
+    #     search_entry.pack(side=tk.LEFT, padx=5)
+        
+    #     # Function to search in Treeview
+    #     def search_treeview(query):
+    #         # Clear current selection
+    #         tree.selection_remove(tree.selection())
+            
+    #         if not query:
+    #             return
+                
+    #         items = tree.get_children()
+    #         found = False
+            
+    #         for item in items:
+    #             values = tree.item(item)['values']
+    #             # Convert all values to string and search
+    #             for value in values:
+    #                 if query.lower() in str(value).lower():
+    #                     tree.selection_set(item)
+    #                     tree.focus(item)
+    #                     tree.see(item)  # Ensure the found item is visible
+    #                     found = True
+    #                     break
+    #             if found:
+    #                 break
+                    
+    #         if not found:
+    #             messagebox.showinfo("Search", f"No results found for '{query}'.")
+        
+    #     # Function to refresh treeview data
+    #     def refresh_data():
+    #         # Clear current data
+    #         tree.delete(*tree.get_children())
+    #         # Load data from database
+    #         self.load_data_from_db(tree, status_label)
+        
+    #     search_button = tk.Button(search_frame, text="Search", 
+    #                             command=lambda: search_treeview(search_entry.get()),
+    #                             bg='#2196F3', fg='white', font=self.button_font, padx=10)
+    #     search_button.pack(side=tk.LEFT, padx=10)
+        
+    #     refresh_button = tk.Button(search_frame, text="Refresh", command=refresh_data,
+    #                              bg='#4CAF50', fg='white', font=self.button_font, padx=10)
+    #     refresh_button.pack(side=tk.LEFT, padx=10)
+        
+    #     # Selection indicator frame
+    #     selection_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=5)
+    #     selection_frame.grid(row=2, column=0, sticky="ew")
+        
+    #     selection_label = tk.Label(selection_frame, text="Selected: 0 records", bg='#e6f2ff', font=self.label_font)
+    #     selection_label.pack(side=tk.LEFT, padx=10)
+        
+    #     # Update the selection counter when selection changes
+    #     def on_tree_select(event):
+    #         selected_items = len(tree.selection())
+    #         selection_label.config(text=f"Selected: {selected_items} records")
+        
+    #     tree.bind('<<TreeviewSelect>>', on_tree_select)
+        
+    #     # Action buttons frame
+    #     action_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=10)
+    #     action_frame.grid(row=3, column=0, sticky="ew")
+        
+    #     edit_btn = tk.Button(action_frame, text="Select Record to Edit",
+    #                       bg='#ff9800', fg='white', font=self.button_font, padx=10)
+    #     edit_btn.pack(side=tk.LEFT, padx=10)
+        
+    #     delete_btn = tk.Button(action_frame, text="Delete Selected Records",
+    #                         bg='#f44336', fg='white', font=self.button_font, padx=10)
+    #     delete_btn.pack(side=tk.LEFT, padx=10)
+        
+    #     update_btn = tk.Button(action_frame, text="UPDATE RECORD",
+    #                         bg='#4CAF50', fg='white', font=self.button_font, padx=10)
+    #     update_btn.pack(side=tk.LEFT, padx=10)
+        
+    #     back_btn = tk.Button(action_frame, text="BACK TO HOME",
+    #                         bg='#4CAF50', fg='white', font=self.button_font, padx=10)  #back btn
+    #     back_btn.pack(side=tk.LEFT, padx=10)
+
+    #     add_btn = tk.Button(action_frame, text="ADD FILE",
+    #                         bg='#4CAF50', fg='white', font=self.button_font, padx=10)  #add
+    #     add_btn.pack(side=tk.LEFT, padx=10)
+    #     # Form frame for editing
+    #     form_frame = tk.Frame(content_frame, bg='#e6f2ff', padx=10, pady=10)
+    #     form_frame.grid(row=4, column=0, sticky="ew")
+        
+    #     # Create a 3-column layout for the form
+    #     form_frame.grid_columnconfigure(0, weight=1)
+    #     form_frame.grid_columnconfigure(1, weight=1)
+    #     form_frame.grid_columnconfigure(2, weight=1)
+        
+    #     # File ID
+    #     file_id_label = tk.Label(form_frame, text="File ID:", bg='#e6f2ff', font=self.label_font)
+    #     file_id_label.grid(row=0, column=0, sticky="e", padx=5, pady=5)
+    #     file_id_box = ttk.Entry(form_frame, width=25)
+    #     file_id_box.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+        
+    #     # File Name
+    #     name_label = tk.Label(form_frame, text="File Name:", bg='#e6f2ff', font=self.label_font)
+    #     name_label.grid(row=1, column=0, sticky="e", padx=5, pady=5)
+    #     name_box = ttk.Entry(form_frame, width=25)
+    #     name_box.grid(row=1, column=1, sticky="w", padx=5, pady=5)
+        
+    #     # Sender
+    #     sender_label = tk.Label(form_frame, text="Sender:", bg='#e6f2ff', font=self.label_font)
+    #     sender_label.grid(row=0, column=2, sticky="e", padx=5, pady=5)
+    #     sender_box = ttk.Entry(form_frame, width=25)
+    #     sender_box.grid(row=0, column=3, sticky="w", padx=5, pady=5)
+        
+    #     # Receiver
+    #     receiver_label = tk.Label(form_frame, text="Receiver:", bg='#e6f2ff', font=self.label_font)
+    #     receiver_label.grid(row=1, column=2, sticky="e", padx=5, pady=5)
+    #     receiver_box = ttk.Entry(form_frame, width=25)
+    #     receiver_box.grid(row=1, column=3, sticky="w", padx=5, pady=5)
+        
+    #     # Despatched To
+    #     despatched_label = tk.Label(form_frame, text="Despatched To:", bg='#e6f2ff', font=self.label_font)
+    #     despatched_label.grid(row=0, column=4, sticky="e", padx=5, pady=5)
+    #     despatched_box = ttk.Entry(form_frame, width=25)
+    #     despatched_box.grid(row=0, column=5, sticky="w", padx=5, pady=5)
+        
+    #     # Remarks
+    #     remarks_label = tk.Label(form_frame, text="Remarks:", bg='#e6f2ff', font=self.label_font)
+    #     remarks_label.grid(row=1, column=4, sticky="e", padx=5, pady=5)
+    #     remarks_box = ttk.Entry(form_frame, width=25)
+    #     remarks_box.grid(row=1, column=5, sticky="w", padx=5, pady=5)
+        
+    #     # Status label
+    #     status_label = tk.Label(new_window, text="", pady=10, bg='#e6f2ff', font=self.label_font)
+    #     status_label.grid(row=2, column=0, sticky="ew")
+        
+    #     ##########################################
+    #     # frame=tk.Frame(root,bg='lightblue')
+    #     # frame.place(relx=0.2,rely=0.2,relheight=0.6,relwidth=0.6)
+    #     # def page1():
+    #     #        label=tk.Label(frame,text='this is the page1')
+    #     #        label.place(relx=0.3,rely=0.4)
+
+    #     # bt=tk.Button(root,text='page1',command=page1)
+    #     # bt.grid(column=0,row=0)
+
+    #     ########################################
+    #     # Define the edit_data function for the edit button
+    #     def edit_data():
+    #         name_box.delete(0, tk.END)
+    #         file_id_box.delete(0, tk.END)
+    #         sender_box.delete(0, tk.END)
+    #         receiver_box.delete(0, tk.END)
+    #         despatched_box.delete(0, tk.END)
+    #         remarks_box.delete(0, tk.END)
+            
+    #         print('edit')
+    #         # Check if multiple items are selected
+    #         selected_items = tree.selection()
+    #         if not selected_items:
+    #             print('not selected')
+    #             messagebox.showinfo("Edit Data", "Select a record to edit")
+    #             # self.deiconify()s
+    #             root.withdraw()
+    #             return
+            
+    #         # For editing, only allow one record at a time
+    #         if len(selected_items) > 1:
+    #             messagebox.showinfo("Edit Data", "Please select only one record to edit")
+    #             return
+                
+    #         selected = selected_items[0]
+    #         print('Selected item:', selected)
+            
+    #         print(tree.item(selected), tree.item(selected)["values"], tree.item(selected)["values"][0])
+    #         values = tree.item(selected, 'values')
+    #         print(values)
+            
+    #         file_id_box.insert(0, values[1])
+    #         name_box.insert(0, values[2])
+    #         sender_box.insert(0, values[3])
+    #         receiver_box.insert(0, values[4])
+    #         despatched_box.insert(0, values[5])
+    #         remarks_box.insert(0, values[7])
+        
+    #     # Define the update_data function for the update button
+    #     def update_data():
+    #         selected_items = tree.selection()
+            
+    #         if not selected_items:
+    #             messagebox.showinfo("Update Data", "Select a record to update!")
+    #             return
+                
+    #         # For updating, only allow one record at a time
+    #         if len(selected_items) > 1:
+    #             messagebox.showinfo("Update Data", "Please select only one record to update")
+    #             return
+                
+    #         selected = selected_items[0]
+    #         id = tree.item(selected)["values"][0]
+            
+    #         tree.item(selected, text='', values=(name_box.get(), file_id_box.get(), 
+    #                                           sender_box.get(), receiver_box.get(), 
+    #                                           despatched_box.get(), remarks_box.get()))
+            
+            
+            
+    #         name = name_box.get()
+    #         file_id = file_id_box.get()
+
+    #         print('NAME====',name,file_id,name == '')
+    #         sender = sender_box.get()
+    #         receiver = receiver_box.get()
+    #         despatched = despatched_box.get()
+    #         remarks = remarks_box.get()
+
+    #         if file_id == '':
+    #             messagebox.showinfo("Warning", "Click the Record to Edit button to proceed!")
+    #             return
+            
+    #         name_box.delete(0, tk.END)
+    #         file_id_box.delete(0, tk.END)
+    #         sender_box.delete(0, tk.END)
+    #         receiver_box.delete(0, tk.END)
+    #         despatched_box.delete(0, tk.END)
+    #         remarks_box.delete(0, tk.END)
+            
+    #         date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+    #         update_query = "UPDATE files SET file_id=%s,file_name=%s,sender=%s,receiver=%s,despatched_to=%s,date_added=%s,remarks=%s WHERE id =%s "
+    #         data = [file_id, name, sender, receiver, despatched, date, remarks, id]
+            
+    #         conn = self.connect_to_db()
+    #         if not conn:
+    #             return
+                
+    #         try:
+    #             cursor = conn.cursor()
+    #             cursor.execute(update_query, data)
+    #             conn.commit()
+                
+    #             messagebox.showinfo("Success", "Data updated successfully!")
+    #             refresh_data()
+                
+    #         except mysql.connector.Error as err:
+    #             status_label.config(text=f"Database Error: {err}")
+    #         finally:
+    #             if conn.is_connected():
+    #                 cursor.close()
+    #                 conn.close()
+        
+    #     # Define the delete_from_db function for multiple record deletion
+    #     def delete_from_db(ids):
+    #         if not ids:
+    #             return
+                
+    #         # Connect to database
+    #         conn = self.connect_to_db()
+    #         if not conn:
+    #             return
+                
+    #         try:
+    #             cursor = conn.cursor()
+                
+    #             # Create placeholder string for SQL IN clause
+    #             placeholders = ','.join(['%s'] * len(ids))
+    #             delete_query = f"DELETE FROM files WHERE id IN ({placeholders})"
+                
+    #             cursor.execute(delete_query, ids)
+    #             conn.commit()
+                
+    #             print(f"{len(ids)} files deleted successfully from database.")
+
+    #             messagebox.showinfo("Success", f"{len(ids)} files deleted successfully from database.")
+    #             refresh_data()
+                
+    #             # Update selection label
+    #             selection_label.config(text="Selected: 0 records")
+                
+    #         except mysql.connector.Error as err:
+    #             status_label.config(text=f"Database Error: {err}")
+    #         finally:
+    #             if conn.is_connected():
+    #                 cursor.close()
+    #                 conn.close()
+        
+    #     # Define the delete_data function for the delete button (supports multiple selection)
+    #     def delete_data():
+    #         print('Delete Data')
+    #         selected_items = tree.selection()
+    #         if not selected_items:
+    #             print('not selected')
+    #             messagebox.showinfo("Delete Data", "Select records to delete")
+    #             return
+            
+    #         # Get all the IDs of the selected records
+    #         ids_to_delete = []
+    #         for item in selected_items:
+    #             ids_to_delete.append(tree.item(item)["values"][0])
+            
+    #         result = messagebox.askquestion("Confirmation", f"Are you sure you want to delete {len(ids_to_delete)} selected file(s)?")
+    #         if result == 'yes':
+    #             # Perform the deletion
+    #             delete_from_db(ids_to_delete)
+    #             print(f"{len(ids_to_delete)} files deleted.")
+    #         else:
+    #             print("Deletion canceled.")
+    #             return
+            
+    #     def open_main_page():
+    #         print('open main page')
+    #         new_window.destroy()  # Close the new window
+    #         root.deiconify()  # Show the home window again
+
+    #     def open_add_page(self):
+    #        print('open add page')
+    #        add_window = tk.Toplevel(self.root)
+    #        add_window.title("Add FILE")
+    #     #    self.call_main_window()
+    #     #    self.create_widgets()
+        
+    #     # Make the new window fullscreen as well
+    #     #    add_window.state('zoomed')  # For Windows
+    #     # For Linux/Mac: new_window.attributes('-zoomed', True)
+
+
+    #     # Connect the functions to the buttons
+    #     edit_btn.config(command=edit_data)
+    #     update_btn.config(command=update_data)
+    #     delete_btn.config(command=delete_data)
+
+    #     back_btn.config(command=open_main_page)
+
+    #     add_btn.config(command=open_add_page(self))
+        
+    #     # Load data from database
+    #     self.load_data_from_db(tree, status_label)
+        
+    #     return new_window
+        
+    #  def load_data_from_db(self, tree, status_label):
+    #     """Load data from database into treeview"""
+    #     conn = self.connect_to_db()
+    #     if not conn:
+    #         status_label.config(text="Error: Could not connect to database")
+    #         return
+            
+    #     try:
+    #         cursor = conn.cursor()
+            
+    #         # Get column names
+    #         cursor.execute("SHOW COLUMNS FROM files")
+    #         headers = [column[0] for column in cursor.fetchall()]
+            
+    #         # Configure treeview columns
+    #         tree["columns"] = headers
+    #         for col in headers:
+    #             tree.heading(col, text=col.replace('_', ' ').title())
+    #             # Adjust column width based on content
+    #             if col in ('file_name', 'sender', 'receiver', 'despatched_to', 'remarks'):
+    #                 tree.column(col, width=150)
+    #             elif col == 'date_added':
+    #                 tree.column(col, width=130)
+    #             else:
+    #                 tree.column(col, width=80)
+            
+    #         # Get data from database
+    #         cursor.execute("SELECT * FROM files ORDER BY date_added DESC")
+    #         rows = cursor.fetchall()
+            
+    #         # Insert data into treeview
+    #         for row in rows:
+    #             tree.insert("", "end", values=row)
+                
+    #         status_label.config(text=f"Database loaded successfully. {len(rows)} records found.")
+            
+    #     except mysql.connector.Error as err:
+    #         status_label.config(text=f"Database Error: {err}")
+    #     finally:
+    #         if conn.is_connected():
+    #             cursor.close()
+    #             conn.close()
    
 
-     def create_widgets(self):
-        """Create all UI elements"""
-        # Create a title label
-        title_label = tk.Label(self.root, text="File Movement Register", 
-                              font=self.title_font, bg='#e6f2ff', fg='#003366')
-        title_label.grid(row=0, column=0, columnspan=3, pady=20)
+    #  def create_widgets(self):
+    #     """Create all UI elements"""
+    #     # Create a title label
+    #     title_label = tk.Label(self.root, text="File Movement Register", 
+    #                           font=self.title_font, bg='#e6f2ff', fg='#003366')
+    #     title_label.grid(row=0, column=0, columnspan=3, pady=20)
         
-        # Create main frames
-        self.input_frame = tk.Frame(self.root, bg='#e6f2ff', padx=20, pady=20,
-                                  highlightbackground='#99ccff', highlightthickness=1)
-        self.input_frame.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=40, pady=10)
-        self.input_frame.grid_columnconfigure(0, weight=1)
-        self.input_frame.grid_columnconfigure(1, weight=2)
+    #     # Create main frames
+    #     self.input_frame = tk.Frame(self.root, bg='#e6f2ff', padx=20, pady=20,
+    #                               highlightbackground='#99ccff', highlightthickness=1)
+    #     self.input_frame.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=40, pady=10)
+    #     self.input_frame.grid_columnconfigure(0, weight=1)
+    #     self.input_frame.grid_columnconfigure(1, weight=2)
         
-        # Create a form using grid for better alignment
-        # File ID
-        row = 0
-        id_label = tk.Label(self.input_frame, text="File ID:", bg='#e6f2ff', 
-                           font=self.label_font, anchor="e")
-        id_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.id_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
-        self.id_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+    #     # Create a form using grid for better alignment
+    #     # File ID
+    #     row = 0
+    #     id_label = tk.Label(self.input_frame, text="File ID:", bg='#e6f2ff', 
+    #                        font=self.label_font, anchor="e")
+    #     id_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+    #     self.id_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+    #     self.id_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
-        # File Name
-        row += 1
-        name_label = tk.Label(self.input_frame, text="File Name:", bg='#e6f2ff', 
-                             font=self.label_font, anchor="e")
-        name_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.name_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
-        self.name_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+    #     # File Name
+    #     row += 1
+    #     name_label = tk.Label(self.input_frame, text="File Name:", bg='#e6f2ff', 
+    #                          font=self.label_font, anchor="e")
+    #     name_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+    #     self.name_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+    #     self.name_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
-        # Sender
-        row += 1
-        sender_label = tk.Label(self.input_frame, text="From (Sender):", bg='#e6f2ff', 
-                               font=self.label_font, anchor="e")
-        sender_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.sender_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
-        self.sender_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+    #     # Sender
+    #     row += 1
+    #     sender_label = tk.Label(self.input_frame, text="From (Sender):", bg='#e6f2ff', 
+    #                            font=self.label_font, anchor="e")
+    #     sender_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+    #     self.sender_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+    #     self.sender_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
-        # Receiver
-        row += 1
-        receiver_label = tk.Label(self.input_frame, text="To (Receiver):", bg='#e6f2ff', 
-                                 font=self.label_font, anchor="e")
-        receiver_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.receiver_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
-        self.receiver_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+    #     # Receiver
+    #     row += 1
+    #     receiver_label = tk.Label(self.input_frame, text="To (Receiver):", bg='#e6f2ff', 
+    #                              font=self.label_font, anchor="e")
+    #     receiver_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+    #     self.receiver_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+    #     self.receiver_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
-        # Despatched To
-        row += 1
-        despatch_label = tk.Label(self.input_frame, text="Despatched To:", bg='#e6f2ff', 
-                                 font=self.label_font, anchor="e")
-        despatch_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.despatch_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
-        self.despatch_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+    #     # Despatched To
+    #     row += 1
+    #     despatch_label = tk.Label(self.input_frame, text="Despatched To:", bg='#e6f2ff', 
+    #                              font=self.label_font, anchor="e")
+    #     despatch_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+    #     self.despatch_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+    #     self.despatch_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
-        # Remarks
-        row += 1
-        remarks_label = tk.Label(self.input_frame, text="Remarks:", bg='#e6f2ff', 
-                                font=self.label_font, anchor="e")
-        remarks_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.remarks_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
-        self.remarks_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+    #     # Remarks
+    #     row += 1
+    #     remarks_label = tk.Label(self.input_frame, text="Remarks:", bg='#e6f2ff', 
+    #                             font=self.label_font, anchor="e")
+    #     remarks_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+    #     self.remarks_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+    #     self.remarks_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
-        # Create buttons frame
-        button_frame = tk.Frame(self.root, bg='#e6f2ff', pady=20)
-        button_frame.grid(row=2, column=0, columnspan=3, sticky="ew")
-        button_frame.grid_columnconfigure(0, weight=1)
-        button_frame.grid_columnconfigure(1, weight=1)
+    #     # Create buttons frame
+    #     button_frame = tk.Frame(self.root, bg='#e6f2ff', pady=20)
+    #     button_frame.grid(row=2, column=0, columnspan=3, sticky="ew")
+    #     button_frame.grid_columnconfigure(0, weight=1)
+    #     button_frame.grid_columnconfigure(1, weight=1)
         
-        # Submit button with improved styling
-        self.submit_button = tk.Button(button_frame, text="Submit", command=self.add_file,
-                              bg='#4CAF50', fg='white', width=20, height=2,
-                              font=self.button_font, relief=tk.RAISED,
-                              activebackground='#45a049', cursor="hand2")
-        self.submit_button.grid(row=0, column=0, padx=20, pady=20)
+    #     # Submit button with improved styling
+    #     self.submit_button = tk.Button(button_frame, text="Submit", command=self.add_file,
+    #                           bg='#4CAF50', fg='white', width=20, height=2,
+    #                           font=self.button_font, relief=tk.RAISED,
+    #                           activebackground='#45a049', cursor="hand2")
+    #     self.submit_button.grid(row=0, column=0, padx=20, pady=20)
         
-        # View Register button with improved styling
-        self.view_button = tk.Button(button_frame, text="View Register", command=self.open_treeview_window,
-                             bg='#2196F3', fg='white', width=20, height=2,
-                             font=self.button_font, relief=tk.RAISED,
-                             activebackground='#0b7dda', cursor="hand2")
-        self.view_button.grid(row=0, column=1, padx=20, pady=20)
+    #     # View Register button with improved styling
+    #     self.view_button = tk.Button(button_frame, text="View Register", command=self.open_treeview_window,
+    #                          bg='#2196F3', fg='white', width=20, height=2,
+    #                          font=self.button_font, relief=tk.RAISED,
+    #                          activebackground='#0b7dda', cursor="hand2")
+    #     self.view_button.grid(row=0, column=1, padx=20, pady=20)
         
-        # Status bar at the bottom
-        self.status_frame = tk.Frame(self.root, bg='#003366', height=30)
-        self.status_frame.grid(row=3, column=0, columnspan=3, sticky="ew")
+    #     # Status bar at the bottom
+    #     self.status_frame = tk.Frame(self.root, bg='#003366', height=30)
+    #     self.status_frame.grid(row=3, column=0, columnspan=3, sticky="ew")
         
-        self.db_status_label = tk.Label(self.status_frame, text="Database Status: Checking...", 
-                                      bg='#003366', fg='white', anchor="w", padx=10)
-        self.db_status_label.pack(side=tk.LEFT, fill=tk.X)
+    #     self.db_status_label = tk.Label(self.status_frame, text="Database Status: Checking...", 
+    #                                   bg='#003366', fg='white', anchor="w", padx=10)
+    #     self.db_status_label.pack(side=tk.LEFT, fill=tk.X)
   ######################################################################################
 # class CircularProgress(tk.Canvas):
 #     def __init__(self, master=None, **kwargs):
