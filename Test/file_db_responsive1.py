@@ -18,8 +18,8 @@ import re
 # Database configuration
 DB_CONFIG = {
     'host': 'localhost',
-    'user': 'file_app_user',
-    'password': 'Hell0W0Rld',
+    'user': 'root',
+    'password': '',
     'database': 'file_register_db'
 }
 
@@ -86,7 +86,7 @@ class ResponsiveApp:
         password_label = tk.Label(self.input_frame, text="Password:", bg='#e6f2ff', 
                              font=self.label_font, anchor="e")
         password_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.password_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font)
+        self.password_entry = ttk.Entry(self.input_frame, width=40, font=self.label_font,show="*")
         self.password_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
         # Create buttons frame
@@ -195,7 +195,7 @@ class ResponsiveApp:
                 messagebox.showinfo("Success", "File added successfully to database.")
                 self.open_treeview_window()
                 # Send email notification
-                self.send_email(name,sender_sel,receiver_sel)
+                self.send_email(name,sender_sel,receiver_sel,inwardnum,outwardnum)
                 
                 # Clear entries after successful submission
                 self.id_entry.delete(0, tk.END)
@@ -246,7 +246,7 @@ class ResponsiveApp:
                                highlightbackground='#99ccff', highlightthickness=1)
         content_frame.grid(row=1, column=0, sticky="nsew", padx=40, pady=10)
         content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(1, weight=2)
+        content_frame.grid_columnconfigure(1, weight=1)
         
         # Create form fields
         # File ID
@@ -312,13 +312,23 @@ class ResponsiveApp:
         self.outwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.outwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        choices = ["Info@santhigirifoundation.com", "projectcellos@gmail.com", "ssreelekshmi09@gmail.com","sreelek24@gmail.com"]
+        choices = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com"]
+
+        choices_one = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","gad@santhigiriashram.org",
+                       "hr@santhigiriashram.org","operations@santhigiriashram.org",
+                       "finance@santhigiriashram.org","comm@santhigiriashram.org","ind@santhigiriashram.org",
+                       "shro@santhigiriashram.org","mkt@santhigiriashram.org","Dept..agri@santhigiriashram.org",
+                       "edu@santhigiriashram.org","culture@santhigiriashram.org","mmd@santhigiriashram.org",
+                          "energy@santhigiriashram.org","planning@santhigiriashram.org","legal@santhigiriashram.org",
+                           "assets@santhigiriashram.org","research@santhigiriashram.org","safety@santhigiriashram.org",
+                            "security@santhigiriashram.org","qc@santhigiriashram.org" ]
+
         row +=1 
         title_label = tk.Label(content_frame, text="Select Sender email", bg='#e6f2ff', 
                             font=self.label_font, anchor="e")
         title_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
         self.sender_dropdown = ttk.Combobox(content_frame,values=choices)
-        self.sender_dropdown.grid(row=row, column=1, sticky="e", padx=10, pady=10)
+        self.sender_dropdown.grid(row=row, column=1, sticky='w', padx=10, pady=10)
     
         def on_selection_change(event):
          sender_selection = self.sender_dropdown.get()
@@ -326,6 +336,7 @@ class ResponsiveApp:
         
         
         self.sender_dropdown.bind("<<ComboboxSelected>>", on_selection_change) 
+        self.sender_dropdown.set("Choose sender email...")
 
       
         # choices_ = ["Option 6", "Option 7", "Option 8", "Option 9", "Option 10"]
@@ -340,11 +351,11 @@ class ResponsiveApp:
         title_label_one = tk.Label(content_frame, text="Select Receiver email", bg='#e6f2ff', 
                             font=self.label_font, anchor="e")
         title_label_one.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.receiver_dropdown = ttk.Combobox(content_frame,values=choices)
-        self.receiver_dropdown.grid(row=row, column=1, sticky="e", padx=10, pady=10)
+        self.receiver_dropdown = ttk.Combobox(content_frame,values=choices_one)
+        self.receiver_dropdown.grid(row=row, column=1, sticky='w',padx=10, pady=10)
                
         self.receiver_dropdown.bind("<<ComboboxSelected>>", on_receiver_selection_change)    
-
+        self.receiver_dropdown.set("Choose receiver email...")
        
 
 
@@ -371,19 +382,24 @@ class ResponsiveApp:
      #login
         logout_button = tk.Button(buttons_frame, text="LOGOUT", 
                               command=lambda: self.logout_and_close_window(add_file_window),
-                              bg='#2196F3', fg='white', width=20, height=2,
+                              bg='#f44336', fg='white', width=20, height=2,
                               font=self.button_font, relief=tk.RAISED,
                               activebackground='#0b7dda', cursor="hand2")
         logout_button.grid(row=0, column=2, padx=20, pady=20)
      
   
+     # Prevent closing the window from X button without proper logout
+        add_file_window.protocol("WM_DELETE_WINDOW", lambda: self.logout_and_close_window(add_file_window))
+        
+        return add_file_window
 
      
      def logout_and_close_window(self, window):
        result = messagebox.askquestion("Logout", "Are you sure you want to logout?")
        if result == 'yes':
-         self.logout()
          window.destroy()
+         self.logout()
+         
          self.username_entry.delete(0, tk.END)
          self.password_entry.delete(0, tk.END)
 
@@ -397,7 +413,7 @@ class ResponsiveApp:
             messagebox.showinfo("Selection", "Please select a file to edit")
             return
             
-        # For simplicity, only edit the first selected item if multiple are selected
+        # For simplicity, only edit the last selected item if multiple are selected
         item = selected[0]
         values = tree.item(item, 'values')
         
@@ -549,7 +565,7 @@ class ResponsiveApp:
 
           # Validate inputs
         if not all([username, password]):
-                messagebox.showerror("Invalid Input", "Please fill in all rrrrrequired fields.")
+                messagebox.showerror("Invalid Input", "Please fill in all required fields.")
                 return
         # if username=='admin' and password=='123':
         #  print('LOgin success')
@@ -575,7 +591,7 @@ class ResponsiveApp:
                 # cursor.execute()
                 # conn.commit()
                 if result:
-                 messagebox.showinfo("login", "LOgin successfullly")
+                 messagebox.showinfo("login", "Login successfull")
                  self.root.withdraw()
                  self.open_add_file_window()
                 else: 
@@ -620,36 +636,36 @@ class ResponsiveApp:
         input_frame_one.grid_columnconfigure(0, weight=1)
         input_frame_one.grid_columnconfigure(1, weight=2)
         
-        username_one = tk.Label(input_frame_one,text="Username")
-        username_one.pack()
+        username_one = tk.Label(input_frame_one,text="Username", bg='#e6f2ff', font=self.label_font)
+        username_one.pack(pady=(10,5))
 
          
        
         self.username_one_entry = ttk.Entry(input_frame_one, width=40, font=self.label_font)
-        self.username_one_entry.pack()
+        self.username_one_entry.pack(pady=(0,10))
         # username_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        password_one = tk.Label(input_frame_one,text="password")
-        password_one.pack()
-        self.password_one_entry = ttk.Entry(input_frame_one, width=40, font=self.label_font)
-        self.password_one_entry.pack()
+        password_one = tk.Label(input_frame_one,text="password", bg='#e6f2ff', font=self.label_font)
+        password_one.pack(pady=(10, 5))
+        self.password_one_entry = ttk.Entry(input_frame_one, width=40, font=self.label_font, show="*")
+        self.password_one_entry.pack(pady=(0, 10))
 
-        email_one = tk.Label(input_frame_one,text="email")
-        email_one.pack()
+        email_one = tk.Label(input_frame_one,text="email",bg='#e6f2ff', font=self.label_font)
+        email_one.pack(pady=(10, 5))
         self.email_one_entry = ttk.Entry(input_frame_one, width=40, font=self.label_font)
-        self.email_one_entry.pack()
+        self.email_one_entry.pack(pady=(0, 10))
 
-        department_one = tk.Label(input_frame_one,text="department")
-        department_one.pack()
+        department_one = tk.Label(input_frame_one,text="department",bg='#e6f2ff', font=self.label_font)
+        department_one.pack(pady=(10, 5))
         self.department_one_entry = ttk.Entry(input_frame_one, width=40, font=self.label_font)
-        self.department_one_entry.pack()
+        self.department_one_entry.pack(pady=(0, 10))
 
 
-        view_button = tk.Button(input_frame_one, text="SIGN UP", command=self.register,
+        signup_button = tk.Button(input_frame_one, text="SIGN UP", command=self.register,
                              bg='#2196F3', fg='white', width=20, height=2,
                              font=self.button_font, relief=tk.RAISED,
                              activebackground='#0b7dda', cursor="hand2")
-        view_button.pack(pady=10)
+        signup_button.pack(pady=10)
 
         view_button = tk.Button(input_frame_one, text="BACK TO LOGIN", command=self.logout,
                              bg='#2196F3', fg='white', width=20, height=2,
@@ -663,7 +679,6 @@ class ResponsiveApp:
 
       #register
      def register(self):
-        print("register")
         username = self.username_one_entry.get()
         print(username)
         password = self.password_one_entry.get()
@@ -674,7 +689,7 @@ class ResponsiveApp:
         print(department)
        
         if not all([username, password,email,department]):
-                messagebox.showerror("Invalid Input", "Please fill in all required fieldddddddddds.")
+                messagebox.showerror("Invalid Input", "Please fill in all required fields.")
                 return
         
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -873,10 +888,11 @@ class ResponsiveApp:
                                  bg='#4CAF50', fg='white', font=self.button_font, padx=10)
         refresh_button.pack(side=tk.LEFT, padx=10)
         buttons_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=10)
-        buttons_frame.grid(row=3, column=0, sticky="ew")
+        buttons_frame.grid(row=4, column=0, sticky="ew")
         buttons_frame.grid_columnconfigure(0, weight=1)
         buttons_frame.grid_columnconfigure(1, weight=1)
         buttons_frame.grid_columnconfigure(2, weight=1) 
+        buttons_frame.grid_columnconfigure(3, weight=1) 
         edit_button = tk.Button(buttons_frame, text="EDIT", command=lambda: self.edit_selected_file(tree),
                               bg='#FFA500', fg='white', width=15, height=1,
                               font=self.button_font, relief=tk.RAISED,
@@ -892,12 +908,17 @@ class ResponsiveApp:
 
 
         back_button = tk.Button(buttons_frame, text="back", command=self.back_to_loginwindow,
-                                bg='#f44336', fg='white', width=15, height=1,
+                                bg='#2196F3', fg='white', width=15, height=1,
                                 font=self.button_font, relief=tk.RAISED,
-                                activebackground='#d32f2f', cursor="hand2")
+                                activebackground='#0b7dda', cursor="hand2")
         back_button.grid(row=0, column=2, padx=10, pady=10)   
 
-
+        # Export button
+        export_button = tk.Button(buttons_frame, text="EXPORT", command=lambda: self.export_to_csv(tree),
+                                bg='#4CAF50', fg='white', width=15, height=1,
+                                font=self.button_font, relief=tk.RAISED,
+                                activebackground='#45a049', cursor="hand2")
+        export_button.grid(row=0, column=3, padx=10, pady=10)
       
      def delete_selected_file(self, tree):
          """Delete selected file(s) from database"""
@@ -981,7 +1002,7 @@ class ResponsiveApp:
                 conn.close()
 
 
-     def send_email(self, name,sender_sel,receiver_sel):
+     def send_email(self, name,sender_sel,receiver_sel,inwardnum,outwardnum):
         """Send notification email about file update"""
         try: 
             print(f"Sending email about file: {name}")
@@ -1002,7 +1023,9 @@ class ResponsiveApp:
         sender_email = sender_sel
         #  
         # receiver_email = ["sreelek24@gmail.com", "ganeshsree2010@gmail.com", "vsreeprakash@gmail.com"]
-        receiver_email = [receiver_sel]
+        # receiver_email = [receiver_sel]
+        receiver_email = receiver_sel
+
 
         # password = 'xskv nmom wbyh eyyg'  # Use an app password, not your main password
         
@@ -1011,9 +1034,15 @@ class ResponsiveApp:
         # Create message
         message = MIMEMultipart()
         message['From'] = sender_email
-        message['To'] = ", ".join(receiver_email)              
-        message['Subject'] = 'File Received'
-
+        # message['To'] = ", ".join(receiver_email)  
+        message['To'] = receiver_email             
+        #            
+        # message['Subject'] = name
+        username = receiver_email.split('@')[0]
+        if inwardnum != '': 
+            message['Subject'] = name+' File Received from '+username
+        elif outwardnum != '' :   
+            message['Subject'] = name+' File sent to '+username
         # Email body         
         body = name + ' updated!'
         message.attach(MIMEText(body, 'plain'))
@@ -1034,6 +1063,37 @@ class ResponsiveApp:
             if 'server' in locals():
                 server.quit()
         
+     def export_to_csv(self, tree):
+        """Export treeview data to CSV file"""
+        # Ask user for save location
+        file_path = filedialog.asksaveasfilename(
+            defaultextension='.csv',
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save CSV File"
+        )
+        
+        if not file_path:
+            return  # User canceled
+            
+        try:
+            with open(file_path, 'w', newline='') as csvfile:
+                # Get column headers
+                headers = tree['columns']
+                
+                # Write headers
+                csvfile.write(','.join(headers) + '\n')
+                
+                # Write data rows
+                for item in tree.get_children():
+                    values = tree.item(item, 'values')
+                    # Convert all values to strings
+                    row = [str(val) for val in values]
+                    csvfile.write(','.join(row) + '\n')
+                    
+            messagebox.showinfo("Export Successful", f"Data exported to {file_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Error exporting data: {e}")    
     
     #  def open_treeview_window(self):
     #     """Open a new window with treeview to display database data"""
