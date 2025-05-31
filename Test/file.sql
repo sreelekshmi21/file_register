@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS files (
     file_name VARCHAR(255) NOT NULL,
     sender VARCHAR(255) NOT NULL,
     receiver VARCHAR(255) NOT NULL,
-    despatched_to VARCHAR(255),
+    -- despatched_to VARCHAR(255),
     date_added DATETIME NOT NULL,
     remarks TEXT,
     delete_item TEXT

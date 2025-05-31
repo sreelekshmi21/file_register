@@ -13,15 +13,20 @@ from app_password import *
 
 from tkinter import ttk
 import re
+import pymysql
 
+import os
+from dotenv import load_dotenv
 
 # Database configuration
-DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'file_register_db'
-}
+# DB_CONFIG = {
+#     'host': 'localhost',
+#     'user': 'root',
+#     'password': '',
+#     'database': 'file_register_db'
+load_dotenv()
+# }
+
 
 class ResponsiveApp:
      def __init__(self, root):
@@ -132,10 +137,19 @@ class ResponsiveApp:
         
      def connect_to_db(self):
         """Create and return a database connection"""
+        MYSQL_HOST = os.getenv("MYSQL_HOST")
+        MYSQL_USER = os.getenv("MYSQL_USER")
+        MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+        MYSQL_DB = os.getenv("MYSQL_DB") 
+        
+        print(f"API Key: {MYSQL_HOST}")
+        print(f"API Key: {MYSQL_USER}")
+        print(f"API Key: {MYSQL_PASSWORD}")
+        print(f"API Key: {MYSQL_DB}")
         try:
-            conn = mysql.connector.connect(**DB_CONFIG)
+            conn = pymysql.connect(host = MYSQL_HOST,user = MYSQL_USER,password = MYSQL_PASSWORD,database = MYSQL_DB)
             return conn
-        except mysql.connector.Error as err:
+        except pymysql.Error as err:
             messagebox.showerror("Database Connection Error", f"Failed to connect to database: {err}")
             return None
      
@@ -149,7 +163,7 @@ class ResponsiveApp:
             name = self.name_entry.get()
             sender = self.sender_entry.get()
             receiver = self.receiver_entry.get()
-            despatch = self.despatch_entry.get()
+            # despatch = self.despatch_entry.get()
             remarks = self.remarks_entry.get()
             inwardnum = self.inwardnum_entry.get()
             outwardnum = self.outwardnum_entry.get()
@@ -183,10 +197,10 @@ class ResponsiveApp:
                 
                 # Insert data into database
                 query = """
-                INSERT INTO files (file_id, file_name, sender, receiver, despatched_to, date_added, remarks,inwardnum,outwardnum)
-                VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s)
+                INSERT INTO files (file_id, file_name, sender, receiver, date_added, remarks,inwardnum,outwardnum)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
                 """
-                values = (fileid, name, sender, receiver, despatch, date, remarks,inwardnum,outwardnum)
+                values = (fileid, name, sender, receiver, date, remarks,inwardnum,outwardnum)
                 
                 cursor.execute(query, values)
                 conn.commit()
@@ -202,7 +216,7 @@ class ResponsiveApp:
                 self.name_entry.delete(0, tk.END)
                 self.sender_entry.delete(0, tk.END)
                 self.receiver_entry.delete(0, tk.END)
-                self.despatch_entry.delete(0, tk.END)
+                # self.despatch_entry.delete(0, tk.END)
                 self.remarks_entry.delete(0, tk.END)
                 self.inwardnum_entry.delete(0, tk.END)
                 self.outwardnum_entry.delete(0, tk.END)
@@ -211,7 +225,7 @@ class ResponsiveApp:
                 print(f"Database error: {err}")
                 messagebox.showerror("Database Error", f"Failed to add file to database:\n{err}")
             finally:
-                if conn.is_connected():
+                # if conn.is_connected():
                     cursor.close()
                     conn.close()
           
@@ -282,12 +296,12 @@ class ResponsiveApp:
         self.receiver_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
         # Despatched To
-        row += 1
-        despatch_label = tk.Label(content_frame, text="Despatched To:", bg='#e6f2ff', 
-                                font=self.label_font, anchor="e")
-        despatch_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.despatch_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
-        self.despatch_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        # row += 1
+        # despatch_label = tk.Label(content_frame, text="Despatched To:", bg='#e6f2ff', 
+        #                         font=self.label_font, anchor="e")
+        # despatch_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        # self.despatch_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        # self.despatch_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
         # Remarks
         row += 1
@@ -312,7 +326,7 @@ class ResponsiveApp:
         self.outwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.outwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        choices = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com"]
+        choices = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","ceo@santhigirifoundation.com","Info@santhigirifoundation.com"]
 
         choices_one = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","gad@santhigiriashram.org",
                        "hr@santhigiriashram.org","operations@santhigiriashram.org",
@@ -357,8 +371,19 @@ class ResponsiveApp:
         self.receiver_dropdown.bind("<<ComboboxSelected>>", on_receiver_selection_change)    
         self.receiver_dropdown.set("Choose receiver email...")
        
+        def search(event):
+          value = event.widget.get()
+          if value == '':
+               self.receiver_dropdown['value'] = choices_one
+          else:
+              data = []
+              for item in choices_one:
+                  if value.lower() in item.lower():
+                     data.append(item)
+              self.receiver_dropdown['values'] = data
 
-
+        self.receiver_dropdown.bind("<KeyRelease>", search)
+        
       # Buttons frame
         buttons_frame = tk.Frame(add_file_window, bg='#e6f2ff', pady=20)
         buttons_frame.grid(row=2, column=0, sticky="ew")
@@ -455,28 +480,28 @@ class ResponsiveApp:
         edit_receiver.insert(0, values[4])  # Index 4 contains receiver
         
         # Despatched To
-        tk.Label(form_frame, text="Despatched To:", bg='#e6f2ff', font=self.label_font).grid(row=4, column=0, sticky="e", padx=10, pady=5)
-        edit_despatch = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_despatch.grid(row=4, column=1, sticky="w", padx=10, pady=5)
-        edit_despatch.insert(0, values[5])  # Index 5 contains despatched_to
+        # tk.Label(form_frame, text="Despatched To:", bg='#e6f2ff', font=self.label_font).grid(row=4, column=0, sticky="e", padx=10, pady=5)
+        # edit_despatch = ttk.Entry(form_frame, width=30, font=self.label_font)
+        # edit_despatch.grid(row=4, column=1, sticky="w", padx=10, pady=5)
+        # edit_despatch.insert(0, values[5])  # Index 5 contains despatched_to
         
         # Remarks
         tk.Label(form_frame, text="Remarks:", bg='#e6f2ff', font=self.label_font).grid(row=5, column=0, sticky="e", padx=10, pady=5)
         edit_remarks = ttk.Entry(form_frame, width=30, font=self.label_font)
         edit_remarks.grid(row=5, column=1, sticky="w", padx=10, pady=5)
-        edit_remarks.insert(0, values[7])  # Index 7 contains remarks
+        edit_remarks.insert(0, values[6])  # Index 6 contains remarks
 
          # InwardNum
         tk.Label(form_frame, text="InwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=6, column=0, sticky="e", padx=10, pady=5)
         edit_inwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
         edit_inwardnum.grid(row=6, column=1, sticky="w", padx=10, pady=5)
-        edit_inwardnum.insert(0, values[8])  # Index 8 contains inwardnum
+        edit_inwardnum.insert(0, values[7])  # Index 7 contains inwardnum
         
          # OutwardNum
         tk.Label(form_frame, text="OutwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=7, column=0, sticky="e", padx=10, pady=5)
         edit_outwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
         edit_outwardnum.grid(row=7, column=1, sticky="w", padx=10, pady=5)
-        edit_outwardnum.insert(0, values[9])  # Index 9 contains outwardnum 
+        edit_outwardnum.insert(0, values[8])  # Index 8 contains outwardnum 
      
      
         def update_file():
@@ -485,7 +510,7 @@ class ResponsiveApp:
             name = edit_name.get()
             sender = edit_sender.get()
             receiver = edit_receiver.get()
-            despatch = edit_despatch.get()
+            # despatch = edit_despatch.get()
             remarks = edit_remarks.get()
             inwardnum = edit_inwardnum.get()
             outwardnum = edit_outwardnum.get()
@@ -510,10 +535,10 @@ class ResponsiveApp:
                 query = """
                 UPDATE files 
                 SET file_id = %s, file_name = %s, sender = %s, receiver = %s, 
-                    despatched_to = %s, date_added=%s, remarks = %s,inwardnum = %s,outwardnum = %s
+                    date_added=%s, remarks = %s,inwardnum = %s,outwardnum = %s
                 WHERE id = %s
                 """
-                values = (file_id, name, sender, receiver, despatch, date, remarks, inwardnum,outwardnum, id)  # values[0] contains the ID
+                values = (file_id, name, sender, receiver, date, remarks, inwardnum,outwardnum, id)  # values[0] contains the ID
                 
                 cursor.execute(query, values)
                 conn.commit()
@@ -523,7 +548,7 @@ class ResponsiveApp:
                 # Refresh the treeview
                 edit_window.destroy()
                 # self.refresh_data()
-                self.load_data_from_db(tree, edit_window)
+                self.load_data_from_db(tree,edit_window)
                 
                 # Close the edit window
                 # edit_window.destroy()
@@ -531,7 +556,7 @@ class ResponsiveApp:
             except mysql.connector.Error as err:
                 messagebox.showerror("Database Error", f"Failed to update file: {err}")
             finally:
-                if conn.is_connected():
+                # if conn.is_connected():
                     cursor.close()
                     conn.close()
         
@@ -600,7 +625,7 @@ class ResponsiveApp:
                 print(f"Database error: {err}")
                 messagebox.showerror("Database Error", f"Failed to login:\n{err}")
         finally:
-                if conn.is_connected():
+                # if conn.is_connected():
                     cursor.close()
                     conn.close()
 
@@ -667,7 +692,7 @@ class ResponsiveApp:
                              activebackground='#0b7dda', cursor="hand2")
         signup_button.pack(pady=10)
 
-        view_button = tk.Button(input_frame_one, text="BACK TO LOGIN", command=self.logout,
+        view_button = tk.Button(input_frame_one, text="BACK TO LOGIN", command=new_signup_window.destroy,
                              bg='#2196F3', fg='white', width=20, height=2,
                              font=self.button_font, relief=tk.RAISED,
                              activebackground='#0b7dda', cursor="hand2")
@@ -694,14 +719,10 @@ class ResponsiveApp:
         
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
-        if (re.match(email_pattern,email)):
-           print('valod')
-
-        else: 
+        if not (re.match(email_pattern,email)):        
             print('invalif')   
             messagebox.showerror("Invalid email", "Invalid email.")
             return  
-
 
             # Connect to database
         conn = self.connect_to_db()
@@ -735,7 +756,7 @@ class ResponsiveApp:
                 print(f"Database error: {err}")
                 messagebox.showerror("Database Error", f"Failed to register user:\n{err}")
         finally:
-                if conn.is_connected():
+                # if conn.is_connected():
                     cursor.close()
                     conn.close()   
 
@@ -745,7 +766,7 @@ class ResponsiveApp:
         self.root.withdraw()
         self.open_add_file_window()
 
-        # self.login()     
+       
 
 
      def open_treeview_window(self, parent_window=None):
@@ -805,6 +826,20 @@ class ResponsiveApp:
         
         search_entry = ttk.Entry(search_frame, width=30, font=self.label_font)
         search_entry.pack(side=tk.LEFT, padx=5)
+
+            # Selection indicator frame
+        selection_frame = tk.Frame(content_frame, bg='#e6f2ff', pady=5)
+        selection_frame.grid(row=2, column=0, sticky="ew")
+        
+        selection_label = tk.Label(selection_frame, text="Selected: 0 records", bg='#e6f2ff', font=self.label_font)
+        selection_label.pack(side=tk.LEFT, padx=10)
+        
+        # Update the selection counter when selection changes
+        def on_tree_select(event):
+            selected_items = len(tree.selection())
+            selection_label.config(text=f"Selected: {selected_items} records")
+        
+        tree.bind('<<TreeviewSelect>>', on_tree_select)
         
         # Function to search in Treeview
         def search_treeview(query):
@@ -842,7 +877,7 @@ class ResponsiveApp:
      
 
        # Define columns
-        tree['columns'] = ('ID', 'file_id', 'file_name', 'sender', 'receiver', 'despatched_to', 'date_added', 'remarks','inwardnum','outwardnum')
+        tree['columns'] = ('ID', 'file_id', 'file_name', 'sender', 'receiver', 'date_added', 'remarks','inwardnum','outwardnum')
         
         # Format columns
         tree.column('#0', width=0, stretch=tk.NO)  # Hidden column
@@ -851,7 +886,7 @@ class ResponsiveApp:
         tree.column('file_name', width=150, anchor=tk.W)
         tree.column('sender', width=150, anchor=tk.W)
         tree.column('receiver', width=150, anchor=tk.W)
-        tree.column('despatched_to', width=150, anchor=tk.W)
+        # tree.column('despatched_to', width=150, anchor=tk.W)
         tree.column('date_added', width=150, anchor=tk.W)
         tree.column('remarks', width=200, anchor=tk.W)
         tree.column('inwardnum', width=200, anchor=tk.W)
@@ -864,7 +899,7 @@ class ResponsiveApp:
         tree.heading('file_name', text='File Name', anchor=tk.CENTER)
         tree.heading('sender', text='From (Sender)', anchor=tk.CENTER)
         tree.heading('receiver', text='To (Receiver)', anchor=tk.CENTER)
-        tree.heading('despatched_to', text='Despatched To', anchor=tk.CENTER)
+        # tree.heading('despatched_to', text='Despatched To', anchor=tk.CENTER)
         tree.heading('date_added', text='Date', anchor=tk.CENTER)
         tree.heading('remarks', text='Remarks', anchor=tk.CENTER)
         tree.heading('inwardnum', text='InwardNum', anchor=tk.CENTER)
@@ -907,7 +942,9 @@ class ResponsiveApp:
         delete_button.grid(row=0, column=1, padx=10, pady=10)
 
 
-        back_button = tk.Button(buttons_frame, text="back", command=self.back_to_loginwindow,
+        back_button = tk.Button(buttons_frame, text="back", 
+                                # command=self.back_to_loginwindow,
+                                command=treeview_window.destroy,
                                 bg='#2196F3', fg='white', width=15, height=1,
                                 font=self.button_font, relief=tk.RAISED,
                                 activebackground='#0b7dda', cursor="hand2")
@@ -960,7 +997,7 @@ class ResponsiveApp:
          except mysql.connector.Error as err:
             messagebox.showerror("Database Error", f"Failed to delete file(s): {err}")
          finally:
-            if conn.is_connected():
+            # if conn.is_connected():
                 cursor.close()
                 conn.close()
 
@@ -997,7 +1034,7 @@ class ResponsiveApp:
             status_label.config(text=f"Database error: {err}")
             messagebox.showerror("Database Error", f"Failed to load data: {err}")
         finally:
-            if conn.is_connected():
+            # if conn.is_connected():
                 cursor.close()
                 conn.close()
 
@@ -1666,25 +1703,6 @@ class ResponsiveApp:
 #         )
 
 
-
-
-
-
-
-
-
-# # Function to validate the login
-# def validate_login():
-#     userid = username_entry.get()
-#     password = password_entry.get()
-
-#     # You can add your own validation logic here
-#     if userid == "admin" and password == "password":
-#         messagebox.showinfo("Login Successful", "Welcome, Admin!")
-#     else:
-#         messagebox.showerror("Login Failed", "Invalid username or password")
-
-
 # from tkinter import ttk
 # import tkinter as tk
 # from tkinter.messagebox import showinfo
@@ -1742,19 +1760,7 @@ class ResponsiveApp:
 # )
 # stop_button.grid(column=1, row=2, padx=10, pady=10, sticky=tk.W)
 
-
-# root.mainloop()
-
   ###################################################################33
-
-
-
-
-
-
-
-
-
 
 # Main application execution
 if __name__ == "__main__":

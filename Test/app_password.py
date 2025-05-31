@@ -5,7 +5,8 @@ def generate_app_password(sender_selection):
                     "user2@example.com": "qrst-uvwx-yzab-cdef",
                     "ssreelekshmi09@gmail.com": "xskv nmom wbyh eyyg",
                     "Info@santhigirifoundation.com" : "ibpn omrp kweb jopi",
-                    "sreelek24@gmail.com":"wbul abbp orvh qpuu"
+                    "sreelek24@gmail.com":"wbul abbp orvh qpuu",
+                    "ceo@santhigirifoundation.com":"tbci oijs ajwi ebln"
                 }
             password = appPasswords[sender_selection]
             return password
