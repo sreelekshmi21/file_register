@@ -17,6 +17,7 @@ import pymysql
 
 import os
 from dotenv import load_dotenv
+import sys
 
 # Database configuration
 # DB_CONFIG = {
@@ -42,7 +43,12 @@ class ResponsiveApp:
         self.root.title("File Movement Register")
         
         # Make the window fullscreen
-        self.root.state('zoomed')  # For Windows
+        # self.root.state('zoomed')  # For Windows
+        if sys.platform.startswith('win'):
+             self.root.state('zoomed')
+        elif sys.platform.startswith('linux'):    
+             self.root.state('normal')  # For linux
+
          # Get screen dimensions
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -240,8 +246,15 @@ class ResponsiveApp:
         add_file_window.title("Add File Information")
         
         # Make the window fullscreen
-        add_file_window.state('zoomed')
-        
+        # add_file_window.state('zoomed')
+        if sys.platform.startswith('win'):
+              add_file_window.state('zoomed')
+        elif sys.platform.startswith('linux'):    
+              add_file_window.state('normal')  # For linux
+
+
+
+
         # Configure the grid
         add_file_window.grid_columnconfigure(0, weight=1)
         add_file_window.grid_rowconfigure(1, weight=1)
@@ -638,7 +651,15 @@ class ResponsiveApp:
         new_signup_window.title("Sign Up Form")
         
         # Make the new window fullscreen as well
-        new_signup_window.state('zoomed')
+        # new_signup_window.state('zoomed')
+        if sys.platform.startswith('win'):
+              new_signup_window.state('zoomed')
+        elif sys.platform.startswith('linux'):    
+              new_signup_window.state('normal')  # For linux
+
+
+
+
 
         new_signup_window.grid_columnconfigure(0, weight=1)
         new_signup_window.grid_rowconfigure(1, weight=1)  # Give the treeview area most of the space
@@ -775,7 +796,12 @@ class ResponsiveApp:
         treeview_window.title("File Register Data")
         
         # Make the new window fullscreen as well
-        treeview_window.state('zoomed')
+        # treeview_window.state('zoomed')
+        if sys.platform.startswith('win'):
+              treeview_window.state('zoomed')
+        elif sys.platform.startswith('linux'):    
+              treeview_window.state('normal')  # For linux
+
         
         # Configure the grid
         treeview_window.grid_columnconfigure(0, weight=1)
