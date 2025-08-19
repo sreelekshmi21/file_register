@@ -8,6 +8,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 # import app_password
 from app_password import *
+from tkcalendar import DateEntry
+from datetime import date
 
 
 
@@ -16,8 +18,10 @@ import re
 import pymysql
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 import sys
+# import pandas as pd
 
 # Database configuration
 # DB_CONFIG = {
@@ -25,9 +29,19 @@ import sys
 #     'user': 'root',
 #     'password': '',
 #     'database': 'file_register_db'
-load_dotenv()
+# load_dotenv()
 # }
+if getattr(sys, 'frozen', False):
+    base_path = Path(sys.executable).parent
+else:
+    base_path = Path(__file__).parent
 
+# ✅ Load .env from the same directory as the .exe
+env_path = base_path / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# ✅ Debug print
+print("Loaded MYSQL_HOST =", os.getenv("MYSQL_HOST"))
 
 class ResponsiveApp:
      def __init__(self, root):
@@ -167,28 +181,47 @@ class ResponsiveApp:
         try: 
             fileid = self.id_entry.get()
             name = self.name_entry.get()
+            subject = self.subject_entry.get()
             sender = self.sender_entry.get()
             receiver = self.receiver_entry.get()
             # despatch = self.despatch_entry.get()
-            remarks = self.remarks_entry.get()
+            
             inwardnum = self.inwardnum_entry.get()
             outwardnum = self.outwardnum_entry.get()
-            sender_sel = self.sender_dropdown.get()
-            print(sender_sel)
-            receiver_sel = self.receiver_dropdown.get()
-            print(sender_sel)
+            current_status = self.current_status_entry.get()
+            remarks = self.remarks_entry.get()
+            # sender_sel = self.sender_dropdown.get()
+            # print(sender_sel)
+            # receiver_sel = self.receiver_dropdown.get()
+            # print(sender_sel)
             
             # Validate inputs
-            if not all([fileid, name, sender, receiver]):
+
+            selected_date = self.bottom_entries["Despatched Date"].get_date()     # datetime.date
+            selected_hour = self.bottom_entries["Despatched Hour"].get()          # string "HH"
+            selected_minute = self.bottom_entries["Despatched Minute"].get()      # string "MM"
+
+            # Combine into datetime object
+            dt_obj = datetime.combine(selected_date, datetime.strptime(f"{selected_hour}:{selected_minute}", "%H:%M").time())
+
+            # Format as string for storing in DB
+            datetime_str = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+
+
+
+
+
+
+            if not all([fileid, name, subject, sender, receiver,current_status]):
                 messagebox.showerror("Invalid Input", "Please fill in all required fields.")
                 return
             
-            if not sender_sel:
-               messagebox.showerror("Error", "Please select a sender email")
-               return
-            if not receiver_sel:
-               messagebox.showerror("Error", "Please select a receiver email")
-               return
+            # if not sender_sel:
+            #    messagebox.showerror("Error", "Please select a sender email")
+            #    return
+            # if not receiver_sel:
+            #    messagebox.showerror("Error", "Please select a receiver email")
+            #    return
                 
             print(f"Adding file: {name} from {sender} to {receiver}")    
             date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -200,32 +233,50 @@ class ResponsiveApp:
                 
             try:
                 cursor = conn.cursor()
+
+
+                query = "SELECT file_id FROM files WHERE file_id = %s"
+
+                cursor.execute(query,(fileid,))
+
+                if cursor.fetchone():
+                 messagebox.showerror("File Error", "File already exists!")
+                 return
                 
-                # Insert data into database
+
+                
+                
+                # Insert data into database 
                 query = """
-                INSERT INTO files (file_id, file_name, sender, receiver, date_added, remarks,inwardnum,outwardnum)
-                VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
+                INSERT INTO files (file_id, file_name, file_subject, sender, receiver, date_added, 
+                inwardnum,outwardnum,current_status, remarks,department)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s, %s,%s, %s)
                 """
-                values = (fileid, name, sender, receiver, date, remarks,inwardnum,outwardnum)
+                values = (fileid, name, subject, sender, receiver, datetime_str, inwardnum,outwardnum, current_status, remarks,
+                          self.user_department)
                 
-                cursor.execute(query, values)
+                cursor.execute(query, values)  
                 conn.commit()
                 
                 print("File added successfully to database.")
-                messagebox.showinfo("Success", "File added successfully to database.")
+                # messagebox.showinfo("Success", "File added successfully to database.")
+                messagebox.showinfo("Info", f"{fileid} received in {receiver} office.")
                 self.open_treeview_window()
                 # Send email notification
-                self.send_email(name,sender_sel,receiver_sel,inwardnum,outwardnum)
+                # self.send_email(name,sender_sel,receiver_sel,inwardnum,outwardnum)
                 
                 # Clear entries after successful submission
                 self.id_entry.delete(0, tk.END)
                 self.name_entry.delete(0, tk.END)
+                self.subject_entry.delete(0, tk.END)
                 self.sender_entry.delete(0, tk.END)
                 self.receiver_entry.delete(0, tk.END)
                 # self.despatch_entry.delete(0, tk.END)
-                self.remarks_entry.delete(0, tk.END)
+                
                 self.inwardnum_entry.delete(0, tk.END)
                 self.outwardnum_entry.delete(0, tk.END)
+                self.current_status_entry.delete(0, tk.END)
+                self.remarks_entry.delete(0, tk.END)
                 
             except mysql.connector.Error as err:
                 print(f"Database error: {err}")
@@ -244,6 +295,8 @@ class ResponsiveApp:
         print('open_add-file')
         add_file_window = tk.Toplevel(self.root)
         add_file_window.title("Add File Information")
+
+        self.bottom_entries = {}
         
         # Make the window fullscreen
         # add_file_window.state('zoomed')
@@ -292,37 +345,69 @@ class ResponsiveApp:
         self.name_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.name_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
+        row += 1
+        subject_label = tk.Label(content_frame, text="File Subject:", bg='#e6f2ff', 
+                            font=self.label_font, anchor="e")
+        subject_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.subject_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.subject_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
         # Sender
         row += 1
-        sender_label = tk.Label(content_frame, text="From (Sender):", bg='#e6f2ff', 
+        sender_label = tk.Label(content_frame, text="Originator:", bg='#e6f2ff', 
                               font=self.label_font, anchor="e")
         sender_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
         self.sender_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.sender_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
         
         # Receiver
+        # Receiver Entry
         row += 1
-        receiver_label = tk.Label(content_frame, text="To (Receiver):", bg='#e6f2ff', 
+        receiver_label = tk.Label(content_frame, text="File Recipient:", bg='#e6f2ff',
                                 font=self.label_font, anchor="e")
         receiver_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+
         self.receiver_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.receiver_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
-        
-        # Despatched To
-        # row += 1
-        # despatch_label = tk.Label(content_frame, text="Despatched To:", bg='#e6f2ff', 
-        #                         font=self.label_font, anchor="e")
-        # despatch_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        # self.despatch_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
-        # self.despatch_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
-        
-        # Remarks
+
+        # Despatched To (Date + Time)
         row += 1
-        remarks_label = tk.Label(content_frame, text="Remarks:", bg='#e6f2ff', 
-                               font=self.label_font, anchor="e")
-        remarks_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.remarks_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
-        self.remarks_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+        datetime_label = tk.Label(content_frame, text="Date:", bg='#e6f2ff',
+                                font=self.label_font, anchor="e")
+        datetime_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+
+        # --- Date Entry ---
+        date_entry = DateEntry(content_frame, width=12, date_pattern='yyyy-mm-dd')
+        date_entry.grid(row=row, column=1, sticky="w", padx=(10, 0), pady=10)
+
+        # --- Time Pickers ---
+        now = datetime.now()
+        hour_var = tk.StringVar(value=now.strftime("%H"))   # Define and set current hour
+        minute_var = tk.StringVar(value=now.strftime("%M")) # Define and set current minute
+
+        hours = [f"{h:02d}" for h in range(0, 24)]
+        minutes = [f"{m:02d}" for m in range(0, 60)]
+
+        # Hour Combobox
+        hour_box = ttk.Combobox(content_frame, textvariable=hour_var, values=hours, width=3)
+        hour_box.grid(row=row, column=1, padx=(130, 0), sticky="w")
+
+        # Colon separator
+        tk.Label(content_frame, text=":").grid(row=row, column=1, padx=(165, 0), sticky="w")
+
+        # Minute Combobox
+        minute_box = ttk.Combobox(content_frame, textvariable=minute_var, values=minutes, width=3)
+        minute_box.grid(row=row, column=1, padx=(180, 0), sticky="w")
+
+        # Optional: Store entries in a dictionary
+        self.bottom_entries["Despatched Date"] = date_entry
+        self.bottom_entries["Despatched Hour"] = hour_var
+        self.bottom_entries["Despatched Minute"] = minute_var
+
+
+
+
+
 
       
         row += 1
@@ -339,63 +424,79 @@ class ResponsiveApp:
         self.outwardnum_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
         self.outwardnum_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        choices = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","ceo@santhigirifoundation.com","Info@santhigirifoundation.com"]
 
-        choices_one = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","gad@santhigiriashram.org",
-                       "hr@santhigiriashram.org","operations@santhigiriashram.org",
-                       "finance@santhigiriashram.org","comm@santhigiriashram.org","ind@santhigiriashram.org",
-                       "shro@santhigiriashram.org","mkt@santhigiriashram.org","Dept..agri@santhigiriashram.org",
-                       "edu@santhigiriashram.org","culture@santhigiriashram.org","mmd@santhigiriashram.org",
-                          "energy@santhigiriashram.org","planning@santhigiriashram.org","legal@santhigiriashram.org",
-                           "assets@santhigiriashram.org","research@santhigiriashram.org","safety@santhigiriashram.org",
-                            "security@santhigiriashram.org","qc@santhigiriashram.org" ]
+        row += 1
+        current_status = tk.Label(content_frame, text="Live File Location:", bg='#e6f2ff', 
+                               font=self.label_font, anchor="e")
+        current_status.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.current_status_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.current_status_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
 
-        row +=1 
-        title_label = tk.Label(content_frame, text="Select Sender email", bg='#e6f2ff', 
-                            font=self.label_font, anchor="e")
-        title_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.sender_dropdown = ttk.Combobox(content_frame,values=choices)
-        self.sender_dropdown.grid(row=row, column=1, sticky='w', padx=10, pady=10)
+
+        row += 1
+        remarks_label = tk.Label(content_frame, text="Remarks:", bg='#e6f2ff', 
+                               font=self.label_font, anchor="e")
+        remarks_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        self.remarks_entry = ttk.Entry(content_frame, width=40, font=self.label_font)
+        self.remarks_entry.grid(row=row, column=1, sticky="w", padx=10, pady=10)
+
+        # choices = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","ceo@santhigirifoundation.com","Info@santhigirifoundation.com"]
+
+        # choices_one = ["ssreelekshmi09@gmail.com","sreelek24@gmail.com","vsreeprakash@gmail.com","gad@santhigiriashram.org",
+        #                "hr@santhigiriashram.org","operations@santhigiriashram.org",
+        #                "finance@santhigiriashram.org","comm@santhigiriashram.org","ind@santhigiriashram.org",
+        #                "shro@santhigiriashram.org","mkt@santhigiriashram.org","Dept..agri@santhigiriashram.org",
+        #                "edu@santhigiriashram.org","culture@santhigiriashram.org","mmd@santhigiriashram.org",
+        #                   "energy@santhigiriashram.org","planning@santhigiriashram.org","legal@santhigiriashram.org",
+        #                    "assets@santhigiriashram.org","research@santhigiriashram.org","safety@santhigiriashram.org",
+        #                     "security@santhigiriashram.org","qc@santhigiriashram.org", "gsadmin@santhigiriashram.org" ]
+
+        # row +=1 
+        # title_label = tk.Label(content_frame, text="Select Sender email", bg='#e6f2ff', 
+        #                     font=self.label_font, anchor="e")
+        # title_label.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        # self.sender_dropdown = ttk.Combobox(content_frame,values=choices)
+        # self.sender_dropdown.grid(row=row, column=1, sticky='w', padx=10, pady=10)
     
-        def on_selection_change(event):
-         sender_selection = self.sender_dropdown.get()
-         print('SEL1===', sender_selection)
+        # def on_selection_change(event):
+        #  sender_selection = self.sender_dropdown.get()
+        #  print('SEL1===', sender_selection)
         
         
-        self.sender_dropdown.bind("<<ComboboxSelected>>", on_selection_change) 
-        self.sender_dropdown.set("Choose sender email...")
+        # self.sender_dropdown.bind("<<ComboboxSelected>>", on_selection_change) 
+        # self.sender_dropdown.set("Choose sender email...")
 
       
-        # choices_ = ["Option 6", "Option 7", "Option 8", "Option 9", "Option 10"]
+        # # choices_ = ["Option 6", "Option 7", "Option 8", "Option 9", "Option 10"]
 
-        def on_receiver_selection_change(event):
-         receiver_selection = self.receiver_dropdown.get()
-         print('SEL22222222===', receiver_selection) 
+        # def on_receiver_selection_change(event):
+        #  receiver_selection = self.receiver_dropdown.get()
+        #  print('SEL22222222===', receiver_selection) 
         
         
 
-        row +=1
-        title_label_one = tk.Label(content_frame, text="Select Receiver email", bg='#e6f2ff', 
-                            font=self.label_font, anchor="e")
-        title_label_one.grid(row=row, column=0, sticky="e", padx=10, pady=10)
-        self.receiver_dropdown = ttk.Combobox(content_frame,values=choices_one)
-        self.receiver_dropdown.grid(row=row, column=1, sticky='w',padx=10, pady=10)
+        # row +=1
+        # title_label_one = tk.Label(content_frame, text="Select Receiver email", bg='#e6f2ff', 
+        #                     font=self.label_font, anchor="e")
+        # title_label_one.grid(row=row, column=0, sticky="e", padx=10, pady=10)
+        # self.receiver_dropdown = ttk.Combobox(content_frame,values=choices_one)
+        # self.receiver_dropdown.grid(row=row, column=1, sticky='w',padx=10, pady=10)
                
-        self.receiver_dropdown.bind("<<ComboboxSelected>>", on_receiver_selection_change)    
-        self.receiver_dropdown.set("Choose receiver email...")
+        # self.receiver_dropdown.bind("<<ComboboxSelected>>", on_receiver_selection_change)    
+        # self.receiver_dropdown.set("Choose receiver email...")
        
-        def search(event):
-          value = event.widget.get()
-          if value == '':
-               self.receiver_dropdown['value'] = choices_one
-          else:
-              data = []
-              for item in choices_one:
-                  if value.lower() in item.lower():
-                     data.append(item)
-              self.receiver_dropdown['values'] = data
+        # def search(event):
+        #   value = event.widget.get()
+        #   if value == '':
+        #        self.receiver_dropdown['value'] = choices_one
+        #   else:
+        #       data = []
+        #       for item in choices_one:
+        #           if value.lower() in item.lower():
+        #              data.append(item)
+        #       self.receiver_dropdown['values'] = data
 
-        self.receiver_dropdown.bind("<KeyRelease>", search)
+        # self.receiver_dropdown.bind("<KeyRelease>", search)
         
       # Buttons frame
         buttons_frame = tk.Frame(add_file_window, bg='#e6f2ff', pady=20)
@@ -454,6 +555,8 @@ class ResponsiveApp:
         # For simplicity, only edit the last selected item if multiple are selected
         item = selected[0]
         values = tree.item(item, 'values')
+
+        print('VALUES',values,len(values), values[0],values[10])
         
         if not values:
             return
@@ -463,76 +566,126 @@ class ResponsiveApp:
         edit_window.title("Edit File Information")
         edit_window.geometry("500x500")
         edit_window.configure(bg='#e6f2ff')
+
+        if sys.platform.startswith('win'):
+               edit_window.state('zoomed')
+        elif sys.platform.startswith('linux'):    
+               edit_window.state('normal')  # For linux
+
+       
         
         # Create form
-        form_frame = tk.Frame(edit_window, bg='#e6f2ff', padx=20, pady=20)
+        form_frame = tk.Frame(edit_window, bg='#e6f2ff')
         form_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # File ID
-        tk.Label(form_frame, text="File ID:", bg='#e6f2ff', font=self.label_font).grid(row=0, column=0, sticky="e", padx=10, pady=5)
-        edit_file_id = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_file_id.grid(row=0, column=1, sticky="w", padx=10, pady=5)
-        edit_file_id.insert(0, values[1])  # Index 1 contains file_id
-        
-        # File Name
-        tk.Label(form_frame, text="File Name:", bg='#e6f2ff', font=self.label_font).grid(row=1, column=0, sticky="e", padx=10, pady=5)
-        edit_name = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_name.grid(row=1, column=1, sticky="w", padx=10, pady=5)
-        edit_name.insert(0, values[2])  # Index 2 contains file_name
-        
-        # Sender
-        tk.Label(form_frame, text="From (Sender):", bg='#e6f2ff', font=self.label_font).grid(row=2, column=0, sticky="e", padx=10, pady=5)
-        edit_sender = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_sender.grid(row=2, column=1, sticky="w", padx=10, pady=5)
-        edit_sender.insert(0, values[3])  # Index 3 contains sender
-        
-        # Receiver
-        tk.Label(form_frame, text="To (Receiver):", bg='#e6f2ff', font=self.label_font).grid(row=3, column=0, sticky="e", padx=10, pady=5)
-        edit_receiver = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_receiver.grid(row=3, column=1, sticky="w", padx=10, pady=5)
-        edit_receiver.insert(0, values[4])  # Index 4 contains receiver
-        
-        # Despatched To
-        # tk.Label(form_frame, text="Despatched To:", bg='#e6f2ff', font=self.label_font).grid(row=4, column=0, sticky="e", padx=10, pady=5)
-        # edit_despatch = ttk.Entry(form_frame, width=30, font=self.label_font)
-        # edit_despatch.grid(row=4, column=1, sticky="w", padx=10, pady=5)
-        # edit_despatch.insert(0, values[5])  # Index 5 contains despatched_to
-        
-        # Remarks
-        tk.Label(form_frame, text="Remarks:", bg='#e6f2ff', font=self.label_font).grid(row=5, column=0, sticky="e", padx=10, pady=5)
-        edit_remarks = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_remarks.grid(row=5, column=1, sticky="w", padx=10, pady=5)
-        edit_remarks.insert(0, values[6])  # Index 6 contains remarks
 
-         # InwardNum
-        tk.Label(form_frame, text="InwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=6, column=0, sticky="e", padx=10, pady=5)
-        edit_inwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
-        edit_inwardnum.grid(row=6, column=1, sticky="w", padx=10, pady=5)
-        edit_inwardnum.insert(0, values[7])  # Index 7 contains inwardnum
+        inner_frame = tk.Frame(form_frame, bg='#e6f2ff')
+        inner_frame.pack(anchor='center')
         
-         # OutwardNum
-        tk.Label(form_frame, text="OutwardNum:", bg='#e6f2ff', font=self.label_font).grid(row=7, column=0, sticky="e", padx=10, pady=5)
-        edit_outwardnum = ttk.Entry(form_frame, width=30, font=self.label_font)
+                # File ID
+        tk.Label(inner_frame, text="File ID:", bg='#e6f2ff', font=self.label_font).grid(row=0, column=0, sticky="e", padx=10, pady=5)
+        edit_file_id = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_file_id.grid(row=0, column=1, sticky="w", padx=10, pady=5)
+        edit_file_id.insert(0, values[1])  # Index 1 = file_id
+
+        # File Name
+        tk.Label(inner_frame, text="File Name:", bg='#e6f2ff', font=self.label_font).grid(row=1, column=0, sticky="e", padx=10, pady=5)
+        edit_file_name = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_file_name.grid(row=1, column=1, sticky="w", padx=10, pady=5)
+        edit_file_name.insert(0, values[2])  # Index 2 = file_name
+
+        # File Subject
+        tk.Label(inner_frame, text="File Subject:", bg='#e6f2ff', font=self.label_font).grid(row=2, column=0, sticky="e", padx=10, pady=5)
+        edit_file_subject = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_file_subject.grid(row=2, column=1, sticky="w", padx=10, pady=5)
+        edit_file_subject.insert(0, values[3])  # Index 3 = file_subject
+
+        # Sender
+        tk.Label(inner_frame, text="Originator:", bg='#e6f2ff', font=self.label_font).grid(row=3, column=0, sticky="e", padx=10, pady=5)
+        edit_sender = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_sender.grid(row=3, column=1, sticky="w", padx=10, pady=5)
+        edit_sender.insert(0, values[4])  # Index 4 = sender
+
+        tk.Label(inner_frame, text="File Recipient:", bg='#e6f2ff', font=self.label_font)\
+        .grid(row=4, column=0, sticky="e", padx=10, pady=5)
+
+        edit_receiver = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_receiver.grid(row=4, column=1, columnspan=4, sticky="w", padx=10, pady=5)
+        edit_receiver.insert(0, values[5])  # Index 5 = receiver
+
+        # --- Date and Time ---
+        tk.Label(inner_frame, text="Date & Time:", bg='#e6f2ff', font=self.label_font)\
+        .grid(row=5, column=0, sticky="e", padx=10, pady=5)
+
+        datetime_frame = tk.Frame(inner_frame, bg='#e6f2ff')
+        datetime_frame.grid(row=5, column=1, columnspan=4, sticky="w", padx=10, pady=5)
+
+        self.date_entry = DateEntry(datetime_frame, width=15, date_pattern='yyyy-mm-dd')
+        self.date_entry.pack(side=tk.LEFT)
+
+        self.hour_var = tk.StringVar()
+        self.minute_var = tk.StringVar()
+
+        ttk.Combobox(datetime_frame, textvariable=self.hour_var, values=[f"{h:02d}" for h in range(24)], width=3)\
+            .pack(side=tk.LEFT, padx=(10, 2))
+
+        tk.Label(datetime_frame, text=":", bg='#e6f2ff', font=self.label_font).pack(side=tk.LEFT)
+
+        ttk.Combobox(datetime_frame, textvariable=self.minute_var, values=[f"{m:02d}" for m in range(60)], width=3)\
+            .pack(side=tk.LEFT, padx=(2, 0))
+
+        # --- Set Date and Time from values[6] ---
+        dt = datetime.strptime(values[6], "%Y-%m-%d %H:%M:%S")
+        self.date_entry.set_date(dt.date())
+        self.hour_var.set(dt.strftime("%H"))
+        self.minute_var.set(dt.strftime("%M"))
+
+        # --- Inward Number ---
+        tk.Label(inner_frame, text="Inward Num:", bg='#e6f2ff', font=self.label_font)\
+            .grid(row=6, column=0, sticky="e", padx=10, pady=5)
+
+        edit_inwardnum = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_inwardnum.grid(row=6, column=1, columnspan=4, sticky="w", padx=10, pady=5)
+        edit_inwardnum.insert(0, values[7])  # Index 7 = inwardnum
+
+        # Outward Number
+        tk.Label(inner_frame, text="Outward Num:", bg='#e6f2ff', font=self.label_font).grid(row=7, column=0, sticky="e", padx=10, pady=5)
+        edit_outwardnum = ttk.Entry(inner_frame, width=30, font=self.label_font)
         edit_outwardnum.grid(row=7, column=1, sticky="w", padx=10, pady=5)
-        edit_outwardnum.insert(0, values[8])  # Index 8 contains outwardnum 
-     
-     
+        edit_outwardnum.insert(0, values[8])  # Index 8 = outwardnum
+
+        # Current Status
+        tk.Label(inner_frame, text="Live File Location:", bg='#e6f2ff', font=self.label_font).grid(row=8, column=0, sticky="e", padx=10, pady=5)
+        edit_current_status = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_current_status.grid(row=8, column=1, sticky="w", padx=10, pady=5)
+        edit_current_status.insert(0, values[9])  # Index 9 = current status
+
+        # Remarks
+        tk.Label(inner_frame, text="Remarks:", bg='#e6f2ff', font=self.label_font).grid(row=9, column=0, sticky="e", padx=10, pady=5)
+        edit_remarks = ttk.Entry(inner_frame, width=30, font=self.label_font)
+        edit_remarks.grid(row=9, column=1, sticky="w", padx=10, pady=5)
+        edit_remarks.insert(0, values[10])  # Index 10 = remarks
+
+
+        
+
+
         def update_file():
             # Get updated values
             file_id = edit_file_id.get()
-            name = edit_name.get()
+            name = edit_file_name.get()
+            subject = edit_file_subject.get()
             sender = edit_sender.get()
             receiver = edit_receiver.get()
-            # despatch = edit_despatch.get()
-            remarks = edit_remarks.get()
             inwardnum = edit_inwardnum.get()
-            outwardnum = edit_outwardnum.get()
+            outwardnum = edit_outwardnum.get()            
+            current_status = edit_current_status.get()
+            remarks = edit_remarks.get()
            
             selected_items = tree.selection()
             id = tree.item(selected_items[0])["values"][0]
 
             # Validate
-            if not all([file_id, name, sender, receiver]):
+            if not all([file_id, name,subject, sender, receiver,current_status]):
                 messagebox.showerror("Invalid Input", "Please fill in all required fields.")
                 return
                 
@@ -544,14 +697,27 @@ class ResponsiveApp:
             try:
                 cursor = conn.cursor()
                 date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+                selected_date = self.date_entry.get_date()              # returns a datetime.date
+                selected_hour = self.hour_var.get()                     # string like '14'
+                selected_minute = self.minute_var.get()                 # string like '45'
+
+                # Step 2: Combine into full datetime
+                datetime_str = f"{selected_date} {selected_hour}:{selected_minute}:00"  # '2025-07-17 14:45:00'
+                selected_datetime = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+
+
+
+
                 # Update data
                 query = """
                 UPDATE files 
-                SET file_id = %s, file_name = %s, sender = %s, receiver = %s, 
-                    date_added=%s, remarks = %s,inwardnum = %s,outwardnum = %s
+                SET file_id = %s, file_name = %s, file_subject = %s, sender = %s, receiver = %s, 
+                    date_added=%s, inwardnum = %s,outwardnum = %s,current_status = %s,remarks = %s
                 WHERE id = %s
                 """
-                values = (file_id, name, sender, receiver, date, remarks, inwardnum,outwardnum, id)  # values[0] contains the ID
+                values = (file_id, name, subject, sender, receiver, selected_datetime, inwardnum,outwardnum, current_status, remarks,id)  # values[0] contains the ID
                 
                 cursor.execute(query, values)
                 conn.commit()
@@ -575,19 +741,23 @@ class ResponsiveApp:
         
 
         buttons_frame = tk.Frame(edit_window, bg='#e6f2ff', pady=10)
-        buttons_frame.pack(fill=tk.X)
+        buttons_frame.pack(side=tk.BOTTOM,fill=tk.X)
+
+        # Inner frame to center buttons and keep them close
+        center_button_frame = tk.Frame(buttons_frame, bg='#e6f2ff')
+        center_button_frame.pack()
         
-        update_button = tk.Button(buttons_frame, text="UPDATE",command=update_file,
+        update_button = tk.Button(center_button_frame, text="UPDATE",command=update_file,
                                 bg='#4CAF50', fg='white', width=15, height=1,
                                 font=self.button_font, relief=tk.RAISED,
                                 activebackground='#45a049', cursor="hand2")
         update_button.pack(side=tk.LEFT, padx=10)
         
-        cancel_button = tk.Button(buttons_frame, text="CANCEL", command=edit_window.destroy,
+        cancel_button = tk.Button(center_button_frame, text="CANCEL", command=edit_window.destroy,
                                 bg='#f44336', fg='white', width=15, height=1,
                                 font=self.button_font, relief=tk.RAISED,
                                 activebackground='#d32f2f', cursor="hand2")
-        cancel_button.pack(side=tk.RIGHT, padx=10)
+        cancel_button.pack(side=tk.LEFT, padx=10)
 
         # def update_file(self):
         #     print('update file')
@@ -623,13 +793,16 @@ class ResponsiveApp:
 
                 # cursor.execute("SELECT * FROM signup WHERE passwd=123456")
                 
-                query = "SELECT username,passwd FROM signup WHERE username = %s AND passwd = %s"
+                query = "SELECT username,passwd, department FROM signup WHERE username = %s AND passwd = %s"
                 cursor.execute(query,(username, password))
                 result = cursor.fetchone()
+
+                print('RES==================',result)
                 # cursor.execute()
                 # conn.commit()
                 if result:
-                 messagebox.showinfo("login", "Login successfull")
+                 self.user_department = result[2] 
+                 messagebox.showinfo("Login", f"Login successful - Department: {self.user_department}")
                  self.root.withdraw()
                  self.open_add_file_window()
                 else: 
@@ -903,33 +1076,37 @@ class ResponsiveApp:
      
 
        # Define columns
-        tree['columns'] = ('ID', 'file_id', 'file_name', 'sender', 'receiver', 'date_added', 'remarks','inwardnum','outwardnum')
+        tree['columns'] = ('ID', 'file_id', 'file_name', 'file_subject', 'sender', 'receiver', 'date_added', 'inwardnum','outwardnum','current_status', 'remarks')
         
         # Format columns
-        tree.column('#0', width=0, stretch=tk.NO)  # Hidden column
+        tree.column('#0', anchor='center', width=0, stretch=tk.NO)  # Hidden column
         tree.column('ID', width=50, anchor=tk.CENTER)
-        tree.column('file_id', width=100, anchor=tk.W)
-        tree.column('file_name', width=150, anchor=tk.W)
-        tree.column('sender', width=150, anchor=tk.W)
-        tree.column('receiver', width=150, anchor=tk.W)
+        tree.column('file_id', width=100, anchor=tk.CENTER)
+        tree.column('file_name',width=150, anchor=tk.CENTER)
+        tree.column('file_subject', width=100, anchor=tk.CENTER)
+        tree.column('sender', width=150, anchor=tk.CENTER)
+        tree.column('receiver', width=150, anchor=tk.CENTER)
         # tree.column('despatched_to', width=150, anchor=tk.W)
-        tree.column('date_added', width=150, anchor=tk.W)
-        tree.column('remarks', width=200, anchor=tk.W)
-        tree.column('inwardnum', width=200, anchor=tk.W)
-        tree.column('outwardnum', width=200, anchor=tk.W)
+        tree.column('date_added', width=150, anchor=tk.CENTER)      
+        tree.column('inwardnum', width=200, anchor=tk.CENTER)
+        tree.column('outwardnum', width=200, anchor=tk.CENTER)
+        tree.column('current_status',width=200, anchor=tk.CENTER)
+        tree.column('remarks', width=200, anchor=tk.CENTER)
         
         # Create headings
         tree.heading('#0', text='', anchor=tk.CENTER)
         tree.heading('ID', text='ID', anchor=tk.CENTER)
         tree.heading('file_id', text='File ID', anchor=tk.CENTER)
         tree.heading('file_name', text='File Name', anchor=tk.CENTER)
-        tree.heading('sender', text='From (Sender)', anchor=tk.CENTER)
-        tree.heading('receiver', text='To (Receiver)', anchor=tk.CENTER)
+        tree.heading('file_subject', text='File Subject', anchor=tk.CENTER)
+        tree.heading('sender', text='Originator', anchor=tk.CENTER)
+        tree.heading('receiver', text='File Recipient', anchor=tk.CENTER)
         # tree.heading('despatched_to', text='Despatched To', anchor=tk.CENTER)
         tree.heading('date_added', text='Date', anchor=tk.CENTER)
-        tree.heading('remarks', text='Remarks', anchor=tk.CENTER)
         tree.heading('inwardnum', text='InwardNum', anchor=tk.CENTER)
         tree.heading('outwardnum', text='OutwardNum', anchor=tk.CENTER)
+        tree.heading('current_status', text='Live File Location', anchor=tk.CENTER)
+        tree.heading('remarks', text='Remarks', anchor=tk.CENTER)
         
         self.load_data_from_db(tree, status_label)
 
@@ -961,7 +1138,7 @@ class ResponsiveApp:
         edit_button.grid(row=0, column=0, padx=10, pady=10)
         
         # Delete button
-        delete_button = tk.Button(buttons_frame, text="DELETE", command=lambda: self.delete_selected_file(tree),
+        delete_button = tk.Button(buttons_frame, text="DELETE", command=lambda: self.delete_selected_file(tree,self.db_status_label),
                                 bg='#f44336', fg='white', width=15, height=1,
                                 font=self.button_font, relief=tk.RAISED,
                                 activebackground='#d32f2f', cursor="hand2")
@@ -977,13 +1154,120 @@ class ResponsiveApp:
         back_button.grid(row=0, column=2, padx=10, pady=10)   
 
         # Export button
-        export_button = tk.Button(buttons_frame, text="EXPORT", command=lambda: self.export_to_csv(tree),
-                                bg='#4CAF50', fg='white', width=15, height=1,
-                                font=self.button_font, relief=tk.RAISED,
-                                activebackground='#45a049', cursor="hand2")
-        export_button.grid(row=0, column=3, padx=10, pady=10)
+        # export_button = tk.Button(buttons_frame, text="EXPORT", command=lambda: self.export_to_csv(tree),
+        #                         bg='#4CAF50', fg='white', width=15, height=1,
+        #                         font=self.button_font, relief=tk.RAISED,
+        #                         activebackground='#45a049', cursor="hand2")
+        # export_button.grid(row=0, column=3, padx=10, pady=10)
+
+#         def upload_excel_to_db():
+#             file_path = filedialog.askopenfilename(
+#                 filetypes=[
+#                     ("Excel Files (.xlsx)", "*.xlsx"),
+#                     ("Excel 97-2003 Files (.xls)", "*.xls"),
+#                     ("All Files", "*.*")
+#                 ]
+#             )
+#             if not file_path:
+#                 return
+
+#             try:
+#                 df = pd.read_excel(file_path,header=3)
+#                 print(df.columns)   
+#                 # Drop any columns with missing headers
+#                 df = df.loc[:, df.columns.notna()]
+
+#                 # Normalize headers
+#                 df.columns = df.columns.str.strip().str.lower()
+
+#                 print("Excel Columns:", df.columns.tolist())
+
+#                 required_columns = [
+#                     'file_id', 'file_name', 'file_subject', 'sender', 'receiver',
+#                     'date_added', 'inwardnum', 'outwardnum', 'current_status',
+#                     'remarks', 'department'
+#                 ]
+
+#                 missing = [col for col in required_columns if col not in df.columns]
+#                 if missing:
+#                     messagebox.showerror("Error", f"Excel file missing required columns: {', '.join(missing)}")
+#                     return
+
+#                 # Keep only expected columns (prevents unexpected ones)
+#                 df = df[required_columns]
+
+#                 # conn = mysql.connector.connect(
+#                 #     host="localhost",
+#                 #     user="root",
+#                 #     password="",
+#                 #     database="file_register_db"
+#                 # )
+#                 conn = mysql.connector.connect(
+#                     host="192.168.7.219",
+#                     user="file_app_user",
+#                     password="Hello",
+#                     database="file_register_db"
+#                 )
+#                 cursor = conn.cursor()
+
+               
+
+#                 for index, row in df.iterrows():
+#                     try:
+
+#                          row = row.where(pd.notnull(row), None)
+
+# # Format the date safely
+#                          date_value = pd.to_datetime(row['date_added'], dayfirst=True).strftime('%Y-%m-%d') if row['date_added'] else None
+#                          cursor.execute("""
+#                             INSERT INTO files (
+#                                 file_id, file_name, file_subject, sender, receiver,
+#                                 date_added, inwardnum, outwardnum, current_status,
+#                                 remarks, department
+#                             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+#                         """, (
+#                             row['file_id'],
+#                             row['file_name'],
+#                             row['file_subject'],
+#                             row['sender'],
+#                             row['receiver'],
+#                             date_value,
+#                             row['inwardnum'],
+#                             row['outwardnum'],
+#                             row['current_status'],
+#                             row['remarks'],
+#                             row['department']
+#                         ))
+#                     except Exception as insert_err:
+#                         print(f"Error inserting row {index + 2}: {insert_err}")
+
+#                 conn.commit()
+#                 cursor.close()
+#                 conn.close()
+
+#                 messagebox.showinfo("Success", "Excel data uploaded successfully.")
+
+#             except Exception as e:
+#                 print("Unexpected error:", e)
+#                 messagebox.showerror("Upload Failed", str(e))
+
+
+        # upload_btn = tk.Button(buttons_frame, text="Upload Excel to Register", command=upload_excel_to_db)
+        # upload_btn.grid(row=0,column=4, padx=10, pady=10)
+
+                
+
+
+
+
+
+
+
+
+
+
       
-     def delete_selected_file(self, tree):
+     def delete_selected_file(self, tree, status_label):
          """Delete selected file(s) from database"""
          selected = tree.selection()
         
@@ -1012,13 +1296,15 @@ class ResponsiveApp:
                     # Delete by ID
                     query = "DELETE FROM files WHERE id = %s"
                     cursor.execute(query, (values[0],))  # values[0] contains the ID
-            
+                    tree.delete(item)
+                   
+
             conn.commit()
             
             messagebox.showinfo("Success", f"{len(selected)} file(s) deleted successfully.")
             
             # Refresh treeview
-            self.load_data_from_db(tree, tree.master)
+            self.load_data_from_db(tree, status_label)
             
          except mysql.connector.Error as err:
             messagebox.showerror("Database Error", f"Failed to delete file(s): {err}")
@@ -1034,7 +1320,8 @@ class ResponsiveApp:
             tree.delete(i)
             
         # Update status
-        status_label.config(text="Loading data...")
+        if status_label.winfo_exists():
+         status_label.config(text="Loading data...")
         
         # Connect to database
         conn = self.connect_to_db()
@@ -1046,15 +1333,36 @@ class ResponsiveApp:
             cursor = conn.cursor()
             
             # Get all files
-            query = "SELECT * FROM files ORDER BY date_added DESC"
-            cursor.execute(query)
+            # query = "SELECT * FROM files ORDER BY date_added DESC"
+            # cursor.execute(query)
+            # rows = cursor.fetchall()
+            print('DEPT=========',self.user_department)
+
+            if self.user_department == 'Santhigiri Foundation':
+             query = "SELECT * FROM files ORDER BY date_added DESC"
+             cursor.execute(query)
+            else:
+            #  query = "SELECT * FROM files WHERE department = %s ORDER BY date_added DESC"
+            #  cursor.execute(query, (self.user_department,))
+
+               query = "SELECT * FROM files WHERE sender = %s OR receiver = %s OR current_status = %s ORDER BY date_added DESC"
+               cursor.execute(query, (self.user_department,self.user_department, self.user_department))
+
             rows = cursor.fetchall()
+
             
             # Insert data into treeview
-            for i, row in enumerate(rows):
+            if not rows:
+                values = [""] * len(tree["columns"])
+                values[len(values) // 2] = "No records found"
+                tree.insert('', 'end', values=values)
+                if status_label.winfo_exists():     
+                 status_label.config(text="No records found")
+            else:
+             for i, row in enumerate(rows):
                 tree.insert('', 'end', values=row)
-                
-            status_label.config(text=f"Loaded {len(rows)} records")
+             if status_label.winfo_exists():     
+                status_label.config(text=f"Loaded {len(rows)} records")
             
         except mysql.connector.Error as err:
             status_label.config(text=f"Database error: {err}")

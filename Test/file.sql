@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS files (
     -- despatched_to VARCHAR(255),
     date_added DATETIME NOT NULL,
     remarks TEXT,
-    delete_item TEXT
+    inwardnum VARCHAR(255),
+    outwardnum VARCHAR(255)
 );
 
 -- Create a user for the application (change password as needed)
